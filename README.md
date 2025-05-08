@@ -13,7 +13,7 @@ VizPromptは、チャット履歴をフローとして管理するノードベ�
 以下のコマンドで動作確認して、project ディレクトリの出力を確認します。
 
 ```sh
-uv run vizprompt chat gemini "こんにちは"
+uv run vizprompt chat ollama "こんにちは"
 ```
 
 実行後、`project/nodes/00/00.xml` などのノードファイルが作成されます。
