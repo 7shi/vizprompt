@@ -78,14 +78,6 @@ project/
 <tags>タグ1,タグ2,タグ3</tags>
 <token_count prompt="345" response="547" metadata="76" />
 </metadata>
-<connections>
-<previous>xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx</previous>
-<next>xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx</next>
-<branch target="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" name="分岐名1" />
-<branch target="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" name="分岐名2" />
-<reference>xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx</reference>
-<flow>main</flow>
-</connections>
 </node>
 ```
 
@@ -102,12 +94,7 @@ project/
   - **last_built**: 最後に要約を生成した時刻
   - **tags**: カンマ区切りのタグリスト
   - **token_count**: トークン数（prompt: プロンプト, response: 応答, metadata: メタデータ）
-- **connections**: ノード間の接続関係
-  - **previous**: 直線的な前のノード
-  - **next**: 直線的な次のノード
-  - **branch**: 分岐情報（target: 分岐先ノード, name: 分岐名）
-  - **reference**: 明示的な参照ノード
-  - **flow**: 所属するフロー名
+- ※ノード間の接続情報（connections）はノードXMLには含めず、フロー定義ファイルで一元管理する
 
 ## 5. メタデータ管理
 
@@ -126,27 +113,33 @@ xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx	01	00.xml
 ### 5.2 フロー定義 (flows/main.yaml)
 
 ```yaml
-id: main
+id: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 name: メインフロー
 created: 2025-05-07T10:00:00Z
 updated: 2025-05-08T13:55:22Z
 description: フローの説明
+# このフローに含まれる全てのノードのIDのリスト（順序ではない）
 nodes:
-  - id: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-    order: 1
-  - id: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-    order: 2
-  - id: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-    order: 3
-branches:
-  - id: branch_id1
-    name: 分岐名1
-    source_node: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-    target_node: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-  - id: branch_id2
-    name: 分岐名2
-    source_node: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-    target_node: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+  - index: 1
+    id: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+  - index: 2
+    id: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+  - index: 3
+    id: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+  - index: 4
+    id: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+# ノード間の接続情報（分岐や合流の情報を定義）
+connections:
+  # 分岐の例: Node 1からNode 2とNode 3に接続
+  - from: 1
+    to: 2
+  - from: 1
+    to: 3
+  # 合流の例: Node 2とNode 3からNode 4に接続
+  - from: 2
+    to: 4
+  - from: 3
+    to: 4
 ```
 
 ### 5.3 タグ定義 (metadata/tags.yaml)

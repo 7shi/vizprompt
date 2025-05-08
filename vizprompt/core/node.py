@@ -141,10 +141,6 @@ class NodeSaver:
 <tags />
 <token_count prompt="0" response="0" metadata="0" />
 </metadata>
-<connections>
-<previous />
-<next />
-</connections>
 </node>
 '''.lstrip()
         with open(node_path, "w", encoding="utf-8") as f:
