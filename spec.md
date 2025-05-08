@@ -36,8 +36,8 @@ VizPromptは、チャット履歴をフローとして管理するノードベ�
 project/
 ├── nodes/                           # ノードディレクトリ
 │   ├── 00/                          # 最初のノード格納フォルダ (最大256ファイル)
-│   │   ├── node_001.xml             # 連番でファイル名を管理
-│   │   ├── node_002.xml
+│   │   ├── 00.xml                   # 連番でファイル名を管理
+│   │   ├── 01.xml
 │   │   └── ...
 │   ├── 01/                          # 257個目以降のノード格納フォルダ
 │   │   └── ...
@@ -63,7 +63,7 @@ project/
 ### 4.1 ノードXMLファイル形式
 
 ```xml
-<node id="node_20250508123045" timestamp="2025-05-08T12:30:45Z">
+<node id="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" timestamp="2025-05-08T12:30:45Z">
 <prompt><![CDATA[
 プロンプト内容をここに記載...
 （改行やフォーマットを保持）
@@ -73,16 +73,17 @@ project/
 （改行やフォーマットを保持）
 ]]></response>
 <metadata>
+<model>gemini-2.0-flash-001</model>
 <summary updated="false" last_built="2025-05-08T12:32:10Z">ノードの要約内容</summary>
 <tags>タグ1,タグ2,タグ3</tags>
 <token_count prompt="345" response="547" metadata="76" />
 </metadata>
 <connections>
-<previous>node_20250508122030</previous>
-<next>node_20250508124512</next>
-<branch target="node_20250508130145" name="分岐名1" />
-<branch target="node_20250508135522" name="分岐名2" />
-<reference>node_20250507153010</reference>
+<previous>xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx</previous>
+<next>xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx</next>
+<branch target="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" name="分岐名1" />
+<branch target="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" name="分岐名2" />
+<reference>xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx</reference>
 <flow>main</flow>
 </connections>
 </node>
@@ -95,6 +96,7 @@ project/
 - **prompt**: ユーザーのプロンプト内容（CDATA内）
 - **response**: AIの応答内容（CDATA内）
 - **metadata**: ノードに関するメタ情報
+  - **model**: 使用したLLMモデル名（例: gemini-2.0-flash-001）
   - **summary**: ノードの要約（プロンプトと応答を含む）
   - **updated**: 要約更新フラグ（編集後未ビルド時はtrue）
   - **last_built**: 最後に要約を生成した時刻
@@ -113,11 +115,11 @@ project/
 
 ```
 node_id	folder	filename
-node_20250508123045	00	node_001.xml
-node_20250508124512	00	node_002.xml
-node_20250508130145	00	node_003.xml
+xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx	00	00.xml
+xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx	00	01.xml
+xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx	00	02.xml
 ...
-node_20250510093012	01	node_001.xml
+xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx	01	00.xml
 ...
 ```
 
@@ -130,21 +132,21 @@ created: 2025-05-07T10:00:00Z
 updated: 2025-05-08T13:55:22Z
 description: フローの説明
 nodes:
-  - id: node_20250508122030
+  - id: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
     order: 1
-  - id: node_20250508123045
+  - id: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
     order: 2
-  - id: node_20250508124512
+  - id: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
     order: 3
 branches:
   - id: branch_id1
     name: 分岐名1
-    source_node: node_20250508123045
-    target_node: node_20250508130145
+    source_node: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+    target_node: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
   - id: branch_id2
     name: 分岐名2
-    source_node: node_20250508123045
-    target_node: node_20250508135522
+    source_node: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+    target_node: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 ```
 
 ### 5.3 タグ定義 (metadata/tags.yaml)
@@ -153,11 +155,11 @@ branches:
 updated: 2025-05-08T13:55:22Z
 tags:
   タグ名1:
-    - node_20250507153010
-    - node_20250508123045
+    - xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+    - xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
   タグ名2:
-    - node_20250508123045
-    - node_20250508124512
+    - xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+    - xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 ```
 
 ### 5.4 インデックス (metadata/index.yaml)
@@ -165,11 +167,11 @@ tags:
 ```yaml
 updated: 2025-05-08T13:55:22Z
 nodes:
-  node_20250508123045:
+  xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx:
     timestamp: 2025-05-08T12:30:45Z
     keywords: キーワード1,キーワード2,キーワード3
     summary: インデックス用要約
-  node_20250508124512:
+  xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx:
     timestamp: 2025-05-08T12:45:12Z
     keywords: キーワード2,キーワード4
     summary: 別のノードの要約

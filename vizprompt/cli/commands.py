@@ -1,18 +1,18 @@
 '''VizPromptのコマンドラインインターフェース'''
 import argparse
 
-from vizprompt.llm.gemini import send_prompt_to_gemini
+from ..llm import gemini
+from ..core.node import NodeSaver
 
-def handle_chat_gemini(args):
-    try:
-        print(f"ユーザー: {args.prompt}")
-        response = send_prompt_to_gemini(args.prompt)
-        print(f"Gemini: {response}")
-    except ValueError as ve:
-        print(f"設定エラー: {ve}")
-        print("環境変数 GEMINI_API_KEY が正しく設定されているか確認してください。")
-    except Exception as e:
-        print(f"エラー: {e}")
+def handle_chat_gemini(prompt):
+    print(f"ユーザー: {prompt}")
+    response = gemini.generate_content(prompt)
+    print(f"Gemini: {response}")
+
+    # --- ノード保存処理 ---
+    saver = NodeSaver(base_dir="project")
+    node_id, node_path = saver.save_node(prompt, response, model=gemini.model)
+    print(f"チャット履歴をノードとして保存しました: {node_path} (ID: {node_id})")
 
 def run_cli():
     parser = argparse.ArgumentParser(description="VizPrompt CLI")
@@ -30,7 +30,7 @@ def run_cli():
 
     if args.command == "chat":
         if args.service == "gemini":
-            handle_chat_gemini(args)
+            handle_chat_gemini(args.prompt)
         else:
             chat_command_parser.print_help()
     else:

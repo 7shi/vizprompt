@@ -11,7 +11,7 @@ client = genai.Client(api_key=api_key)
 # 必要に応じてモデルを変更してください。
 model = "gemini-2.0-flash-001"
 
-def send_prompt_to_gemini(prompt: str) -> str:
+def generate_content(prompt: str) -> str:
     """
     Gemini APIにプロンプトを送信し、応答を取得します。
 
@@ -41,7 +41,7 @@ if __name__ == '__main__':
     try:
         user_prompt = "こんにちは、今日の天気は？"
         print(f"ユーザー: {user_prompt}")
-        gemini_response = send_prompt_to_gemini(user_prompt)
+        gemini_response = generate_content(user_prompt)
         print(f"Gemini: {gemini_response}")
     except Exception as e:
         print(e)
