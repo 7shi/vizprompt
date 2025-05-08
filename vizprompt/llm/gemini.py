@@ -26,22 +26,15 @@ def generate_content(prompt: str) -> str:
         Exception: API呼び出し中にエラーが発生した場合。
     """
 
-    try:
-        response = client.models.generate_content(
-            model=model,
-            contents=[prompt],
-        )
-        return response.text
-    except Exception as e:
-        # エラーハンドリングを強化することを推奨します
-        raise Exception(f"Gemini API呼び出し中にエラーが発生しました: {e}")
+    response = client.models.generate_content(
+        model=model,
+        contents=[prompt],
+    )
+    return response.text
 
 if __name__ == '__main__':
     # 簡単なテスト用（環境変数 GEMINI_API_KEY を設定して実行）
-    try:
-        user_prompt = "こんにちは、今日の天気は？"
-        print(f"ユーザー: {user_prompt}")
-        gemini_response = generate_content(user_prompt)
-        print(f"Gemini: {gemini_response}")
-    except Exception as e:
-        print(e)
+    user_prompt = "こんにちは、今日の天気は？"
+    print(f"ユーザー: {user_prompt}")
+    gemini_response = generate_content(user_prompt)
+    print(f"Gemini: {gemini_response}")
