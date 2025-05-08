@@ -11,7 +11,7 @@ client = genai.Client(api_key=api_key)
 # 必要に応じてモデルを変更してください。
 model = "gemini-2.0-flash-001"
 
-def generate_content(prompt: str) -> str:
+def generate_content(prompt: str) -> tuple[str, str]:
     """
     Gemini APIにプロンプトを送信し、応答を取得します。
 
@@ -19,7 +19,7 @@ def generate_content(prompt: str) -> str:
         prompt: Geminiに送信するプロンプト文字列。
 
     Returns:
-        Geminiからの応答文字列。
+        (Geminiからの応答文字列, 使用モデル名) のタプル。
 
     Raises:
         ValueError: GEMINI_API_KEYが設定されていない場合。
@@ -30,11 +30,11 @@ def generate_content(prompt: str) -> str:
         model=model,
         contents=[prompt],
     )
-    return response.text
+    return response.text, model
 
 if __name__ == '__main__':
     # 簡単なテスト用（環境変数 GEMINI_API_KEY を設定して実行）
     user_prompt = "こんにちは、今日の天気は？"
     print(f"ユーザー: {user_prompt}")
-    gemini_response = generate_content(user_prompt)
-    print(f"Gemini: {gemini_response}")
+    gemini_response, used_model = generate_content(user_prompt)
+    print(f"{used_model}: {gemini_response}")

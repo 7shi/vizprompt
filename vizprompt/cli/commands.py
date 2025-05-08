@@ -5,24 +5,15 @@ from ..llm import gemini
 from ..llm import ollama
 from ..core.node import NodeSaver
 
-def handle_chat_gemini(prompt):
+def handle_chat(prompt, response, model):
+    prompt = prompt.rstrip()
+    response = response.rstrip()
     print(f"ユーザー: {prompt}")
-    response = gemini.generate_content(prompt)
-    print(f"Gemini: {response}")
+    print(f"{model}: {response}")
 
     # --- ノード保存処理 ---
     saver = NodeSaver(base_dir="project")
-    node_id, node_path = saver.save_node(prompt, response, model=gemini.model)
-    print(f"チャット履歴をノードとして保存しました: {node_path} (ID: {node_id})")
-
-def handle_chat_ollama(prompt):
-    print(f"ユーザー: {prompt}")
-    response = ollama.generate_content(prompt)
-    print(f"Ollama: {response}")
-
-    # --- ノード保存処理 ---
-    saver = NodeSaver(base_dir="project")
-    node_id, node_path = saver.save_node(prompt, response, model=ollama.model)
+    node_id, node_path = saver.save_node(prompt, response, model=model)
     print(f"チャット履歴をノードとして保存しました: {node_path} (ID: {node_id})")
 
 def run_cli():
@@ -45,9 +36,11 @@ def run_cli():
 
     if args.command == "chat":
         if args.service == "gemini":
-            handle_chat_gemini(args.prompt)
+            response, model = gemini.generate_content(args.prompt)
+            handle_chat(args.prompt, response, model)
         elif args.service == "ollama":
-            handle_chat_ollama(args.prompt)
+            response, model = ollama.generate_content(args.prompt)
+            handle_chat(args.prompt, response, model)
         else:
             chat_command_parser.print_help()
     else:
