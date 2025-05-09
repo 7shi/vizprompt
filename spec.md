@@ -52,7 +52,7 @@ project/
 ├── metadata/                        # メタデータファイル
 │   ├── tags.yaml                    # タグ一覧 (YAML形式)
 │   ├── index.yaml                   # ノード検索用インデックス (YAML形式)
-│   ├── node_map.tsv                 # ノードIDとファイルパスのマッピング (TSV形式)
+│   ├── node_map.tsv                 # ノードファイルパス・UUID・タイムスタンプのマッピング (TSV形式)
 │   └── flow_map.tsv                 # フローIDとファイルパスのマッピング (TSV形式)
 └── config.yaml                      # 設定ファイル (YAML形式)
 ```
@@ -65,10 +65,13 @@ project/
 
 ## 4. ノード構造
 
+タイムスタンプはISO 8601形式で表現します。ノードはUUIDを使用して識別されますが、同じUUIDでバージョン違いのノードが存在する場合があります。
+
 ### 4.1 ノードXMLファイル形式
 
 ```xml
-<node id="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" timestamp="2025-05-09T06:48:06.533720Z">
+<?xml version="1.0" encoding="utf-8"?>
+<node id="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" timestamp="2025-05-09T06:48:06.533720+09:00">
 <prompt><![CDATA[
 プロンプト内容をここに記載...
 （改行やフォーマットを保持）
@@ -81,8 +84,8 @@ project/
 <model>gemini-2.0-flash-001</model>
 <stats role="user" count="6" duration="1.20" rate="4.99" />
 <stats role="assistant" count="14" duration="0.08" rate="179.49" />
-<summary updated="false" last_built="2025-05-09T06:48:06.533720Z">ノードの要約内容</summary>
-<tags>タグ1,タグ2,タグ3</tags>
+<summary updated="false" last_built="2025-05-09T06:48:06.533720+09:00">ノードの要約内容</summary>
+<tags><tag>タグ1</tag><tag>タグ2</tag><tag>タグ3</tag></tags>
 </metadata>
 </node>
 ```
@@ -103,20 +106,41 @@ project/
   - **summary**: ノードの要約（プロンプトと応答を含む）
   - **updated**: 要約更新フラグ（編集後未ビルド時はtrue）
   - **last_built**: 最後に要約を生成した時刻
-  - **tags**: カンマ区切りのタグリスト（空の場合は<tags />として表現）
-- ※ノード間の接続情報（connections）はノードXMLには含めず、フロー定義ファイルで一元管理する
+  - **tags**: ノードに関連するタグ（複数可）
+    - **tag**: タグ名
+
+※ ノード間の接続情報（connections）はノードXMLには含めず、フロー定義ファイルで一元管理する
+
+### 4.3 UUID衝突への対処法
+
+ノードの編集や手動コピーなどの操作により、UUID衝突が発生する可能性があります。以下の手順でこれを検出し対処します：
+
+1. **UUID衝突の検出**
+   - システム起動時またはインデックス再構築時に全ノードをスキャン
+   - 同一UUID複数発見時に衝突と判断
+
+2. **衝突解決アルゴリズム**
+   - タイムスタンプが新しいノードを優先
+   - タイムスタンプが同一の場合、ディレクトリ走査で後から発見されたノードを優先
+   - マップ構造ではUUIDをキーとしたリストを保持することで複数候補の管理を可能に
+
+3. **競合処理手順**
+   - 最新または優先ノードをリストの先頭に置くことで、正規ノードを表現
+   - 他の競合ノードは優先度順にリストに配置
+
+これによりUUID衝突が発生した場合でも、システムの一貫性を保ちながら適切に対応します。
 
 ## 5. メタデータ管理
 
 ### 5.1 ノードマッピング (node_map.tsv)
 
 ```
-node_id	folder	filename
-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx	00	00.xml
-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx	00	01.xml
-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx	00	02.xml
+relpath	uuid	timestamp
+00/00.xml	xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx	2025-05-09T06:48:06.533720+09:00
+00/01.xml	xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx	2025-05-09T06:49:10.123456+09:00
+00/02.xml	xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx	2025-05-09T06:50:22.654321+09:00
 ...
-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx	01	00.xml
+01/00.xml	xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx	2025-05-09T07:01:00.000000+09:00
 ...
 ```
 
@@ -125,8 +149,8 @@ xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx	01	00.xml
 ```yaml
 id: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 name: メインフロー
-created: 2025-05-07T10:00:00Z
-updated: 2025-05-08T13:55:22Z
+created: 2025-05-07T10:00:00+09:00
+updated: 2025-05-08T13:55:22+09:00
 description: フローの説明
 # このフローに含まれる全てのノードのIDのリスト（順序ではない）
 nodes:
@@ -167,7 +191,7 @@ xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx	01	00.yaml
 ### 5.4 タグ定義 (metadata/tags.yaml)
 
 ```yaml
-updated: 2025-05-08T13:55:22Z
+updated: 2025-05-08T13:55:22+09:00
 tags:
   タグ名1:
     - xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
@@ -180,14 +204,14 @@ tags:
 ### 5.5 インデックス (metadata/index.yaml)
 
 ```yaml
-updated: 2025-05-08T13:55:22Z
+updated: 2025-05-08T13:55:22+09:00
 nodes:
   xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx:
-    timestamp: 2025-05-08T12:30:45Z
+    timestamp: 2025-05-08T12:30:45+09:00
     keywords: キーワード1,キーワード2,キーワード3
     summary: インデックス用要約
   xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx:
-    timestamp: 2025-05-08T12:45:12Z
+    timestamp: 2025-05-08T12:45:12+09:00
     keywords: キーワード2,キーワード4
     summary: 別のノードの要約
 ```
@@ -196,8 +220,8 @@ nodes:
 
 ```yaml
 version: "1.0"
-created: 2025-05-07T10:00:00Z
-updated: 2025-05-08T13:55:22Z
+created: 2025-05-07T10:00:00+09:00
+updated: 2025-05-08T13:55:22+09:00
 settings:
   max_files_per_folder: 256
   default_llm_provider: openai

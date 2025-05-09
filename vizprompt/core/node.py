@@ -1,30 +1,24 @@
-import os
-import datetime
-import uuid
+import os, uuid
+from datetime import datetime
 
 import xml.etree.ElementTree as ET
+from xml.dom.minidom import Document
 
-def normalize(text, cdata=False):
-    """文字列を正規化する関数"""
-    text = text.rstrip().replace("\r\n", "\n").replace("\r", "\n")
-    if cdata:
-        # CDATA内に ']]>' が含まれている場合は分割して複数のCDATAセクションにする
-        text = text.replace("]]>", "]]]]><![CDATA[>")
-    return text
-
-def _get_uuid_from_xml(path):
-    """XMLファイルのルート要素id属性からUUIDを取得（プル型パーサー使用）。なければゼロUUIDを返す"""
+def _get_uuid_and_timestamp_from_xml(path):
+    """
+    XMLファイルのルート要素id属性とtimestamp属性を取得（なければゼロUUIDと空文字を返す）
+    """
     try:
         for _, elem in ET.iterparse(path, events=("start",)):
             if elem.tag == "node":
-                uuid_str = elem.attrib.get("id")
-                if uuid_str:
-                    return uuid_str
-                else:
-                    break
+                uuid_str = elem.attrib.get("id", str(uuid.UUID(int=0)))
+                timestamp = elem.attrib.get("timestamp", "")
+                return uuid_str, timestamp
+            else:
+                break
     except Exception:
         pass
-    return str(uuid.UUID(int=0))
+    return str(uuid.UUID(int=0)), ""
 
 class Node:
     """
@@ -32,14 +26,19 @@ class Node:
     """
     def __init__(
         self,
+        *, # 引数名を指定して渡す
         id: str,
-        timestamp: str,
+        timestamp: datetime,
         prompt: str,
         response: str,
         model: str,
-        user_stats: dict,
-        assistant_stats: dict,
-        summary: dict,
+        user_count: int,
+        user_duration: float,
+        assistant_count: int,
+        assistant_duration: float,
+        summary: str,
+        summary_updated: bool,
+        summary_last_built: datetime,
         tags: list,
         path: str,
     ):
@@ -48,9 +47,13 @@ class Node:
         self.prompt = prompt
         self.response = response
         self.model = model
-        self.user_stats = user_stats
-        self.assistant_stats = assistant_stats
+        self.user_count = user_count
+        self.user_duration = user_duration
+        self.assistant_count = assistant_count
+        self.assistant_duration = assistant_duration
         self.summary = summary
+        self.summary_updated = summary_updated
+        self.summary_last_built = summary_last_built
         self.tags = tags
         self.path = path
 
@@ -58,31 +61,48 @@ class Node:
         """
         NodeインスタンスをXML文字列に変換
         """
-        prompt = normalize(self.prompt, cdata=True)
-        response = normalize(self.response, cdata=True)
-        # user_stats, assistant_stats, summary, tagsはdict/list前提
-        user = self.user_stats
-        assistant = self.assistant_stats
-        summary = self.summary
-        tags = self.tags
-        xml = f'''<?xml version="1.0" encoding="utf-8"?>
-<node id="{self.id}" timestamp="{self.timestamp}">
-<prompt><![CDATA[
-{prompt}
-]]></prompt>
-<response><![CDATA[
-{response}
-]]></response>
-<metadata>
-<model>{self.model}</model>
-<stats role="user" count="{user.get("count",0)}" duration="{user.get("duration",0):.2f}" rate="{user.get("rate",0):.2f}" />
-<stats role="assistant" count="{assistant.get("count",0)}" duration="{assistant.get("duration",0):.2f}" rate="{assistant.get("rate",0):.2f}" />
-<summary updated="{summary.get("updated","false")}" last_built="{summary.get("last_built",self.timestamp)}" />
-<tags>{''.join(f'<tag>{t}</tag>' for t in tags)}</tags>
-</metadata>
-</node>
-'''.lstrip()
-        return xml
+        doc = Document()
+        node = doc.createElement('node')
+        node.setAttribute('id', self.id)
+        node.setAttribute('timestamp', self.timestamp.astimezone().isoformat())
+        doc.appendChild(node)
+        prompt = doc.createElement('prompt')
+        prompt.appendChild(doc.createCDATASection(f'\n{self.prompt.rstrip()}\n'))
+        node.appendChild(prompt)
+        response = doc.createElement('response')
+        response.appendChild(doc.createCDATASection(f'\n{self.response.rstrip()}\n'))
+        node.appendChild(response)
+        metadata = doc.createElement('metadata')
+        model = doc.createElement('model')
+        model.appendChild(doc.createTextNode(self.model))
+        metadata.appendChild(model)
+        stats_user = doc.createElement('stats')
+        stats_user.setAttribute('role', 'user')
+        stats_user.setAttribute('count', str(self.user_count))
+        stats_user.setAttribute('duration', f'{self.user_duration:.2f}')
+        user_rate = self.user_count / self.user_duration if self.user_duration > 0 else 0
+        stats_user.setAttribute('rate', f'{user_rate:.2f}')
+        metadata.appendChild(stats_user)
+        stats_assistant = doc.createElement('stats')
+        stats_assistant.setAttribute('role', 'assistant')
+        stats_assistant.setAttribute('count', str(self.assistant_count))
+        stats_assistant.setAttribute('duration', f'{self.assistant_duration:.2f}')
+        assistant_rate = self.assistant_count / self.assistant_duration if self.assistant_duration > 0 else 0
+        stats_assistant.setAttribute('rate', f'{assistant_rate:.2f}')
+        metadata.appendChild(stats_assistant)
+        summary = doc.createElement('summary')
+        summary.setAttribute('updated', str(self.summary_updated).lower())
+        summary.setAttribute('last_built', self.summary_last_built.astimezone().isoformat())
+        summary.appendChild(doc.createTextNode(self.summary))
+        metadata.appendChild(summary)
+        tags = doc.createElement('tags')
+        for tag in self.tags:
+            tag_elem = doc.createElement('tag')
+            tag_elem.appendChild(doc.createTextNode(tag))
+            tags.appendChild(tag_elem)
+        metadata.appendChild(tags)
+        node.appendChild(metadata)
+        return doc.toprettyxml(encoding='utf-8', indent='').decode('utf-8')
 
     def save(self):
         """
@@ -99,28 +119,33 @@ class NodeManager:
         self.map_path = os.path.join(base_dir, "metadata", "node_map.tsv")
         os.makedirs(self.nodes_dir, exist_ok=True)
         os.makedirs(os.path.dirname(self.map_path), exist_ok=True)
-        self.tsv_entries = []
-        self.uuid_map = {}
+        self.tsv_entries = {}  # relpath -> (uuid, timestamp)
+        self.uuid_map = {}     # uuid -> [relpath]
         self._check_and_update_node_map()
+
+    def add_node(self, relpath, uuid, timestamp):
+        """
+        ノードを追加するメソッド
+        relpath: ノードの相対パス
+        uuid: ノードのUUID
+        timestamp: ノードのタイムスタンプ
+        """
+        self.tsv_entries[relpath] = (uuid, timestamp)
+        self.uuid_map.setdefault(uuid, []).append(relpath)
 
     # Nodeファイルとnode_map.tsvの整合性チェック・自動修正
     def _check_and_update_node_map(self):
         # 1. node_map.tsvの読み込み＋キャッシュ初期化
-        self.tsv_entries = []
+        self.tsv_entries = {}
         self.uuid_map = {}
-        tsv_set = set()
         if os.path.exists(self.map_path):
             with open(self.map_path, encoding="utf-8") as f:
                 for line in f:
                     parts = line.strip().split("\t")
                     if len(parts) == 3:
-                        uuid, folder, fname = parts
-                        self.tsv_entries.append((folder, fname))
-                        self.uuid_map[(folder, fname)] = uuid
-                        tsv_set.add((folder, fname))
+                        self.add_node(*parts)
 
         # 2. nodes_dir配下の全XMLファイルを列挙しつつ不足分を即時追加
-        file_entries = []
         changed = False
         for folder in os.listdir(self.nodes_dir):
             folder_path = os.path.join(self.nodes_dir, folder)
@@ -128,107 +153,84 @@ class NodeManager:
                 continue
             for fname in os.listdir(folder_path):
                 if fname.endswith(".xml") and len(fname) == 6:
-                    entry = (folder, fname)
-                    file_entries.append(entry)
-                    if entry not in tsv_set:
+                    relpath = f"{folder}/{fname}"
+                    # 不足分を追加
+                    if relpath not in self.tsv_entries:
                         xml_path = os.path.join(self.nodes_dir, folder, fname)
-                        uuid = _get_uuid_from_xml(xml_path)
-                        while uuid in self.uuid_map.values():
-                            # UUID重複時は新しいUUIDを生成
-                            uuid = str(uuid.uuid4())
-                        self.tsv_entries.append(entry)
-                        self.uuid_map[entry] = uuid
-                        changed = True
-        file_set = set(file_entries)
+                        uuid, timestamp = _get_uuid_and_timestamp_from_xml(xml_path)
+                        self.add_node(relpath, uuid, timestamp)
 
-        # 3. 過剰エントリ削除
-        for entry in list(self.tsv_entries):
-            if entry not in file_set:
-                self.tsv_entries.remove(entry)
-                self.uuid_map.pop(entry, None)
+        # 3. 過剰分を削除
+        for relpath in list(self.tsv_entries.keys()):
+            if relpath not in self.uuid_map:
+                self.tsv_entries.pop(relpath)
                 changed = True
 
         # 4. フラグが立っていればTSV書き直し
         if changed:
             with open(self.map_path, "w", encoding="utf-8") as f:
-                for folder, fname in self.tsv_entries:
-                    uuid = self.uuid_map.get((folder, fname), "")
-                    f.write(f"{uuid}\t{folder}\t{fname}\n")
+                for relpath, (uuid, timestamp) in self.tsv_entries.items():
+                    f.write(f"{relpath}\t{uuid}\t{timestamp}\n")
 
-    def _get_next_folder_and_filename(self):
+    def _get_next_relpath_and_folder(self):
         # TSVキャッシュベースで空きを探す
-        used = set(self.tsv_entries)
+        used = set(self.tsv_entries.keys())
         for i in range(256):
             folder = f"{i:02x}"
             folder_path = os.path.join(self.nodes_dir, folder)
             os.makedirs(folder_path, exist_ok=True)
             for idx in range(256):
                 filename = f"{idx:02x}.xml"
-                key = (folder, filename)
-                xml_path = os.path.join(folder_path, filename)
-                if key not in used:
-                    # 空きが見つかった場合、既存ファイルがあればUUIDを取得してキャッシュ・TSVに追記
+                relpath = f"{folder}/{filename}"
+                if relpath not in used:
+                    # 空きが見つかった場合、既存ファイルがあればUUIDとtimestampを取得してキャッシュ・TSVに追記
+                    xml_path = os.path.join(folder_path, filename)
                     if os.path.exists(xml_path):
-                        uuid = _get_uuid_from_xml(xml_path)
-                        self.tsv_entries.append(key)
-                        self.uuid_map[key] = uuid
+                        uuid, timestamp = _get_uuid_and_timestamp_from_xml(xml_path)
+                        self.add_node(relpath, uuid, timestamp)
                         # TSV追記
-                        if os.path.exists(self.map_path):
-                            with open(self.map_path, "a", encoding="utf-8") as f:
-                                f.write(f"{uuid}\t{folder}\t{filename}\n")
-                        else:
-                            with open(self.map_path, "w", encoding="utf-8") as f:
-                                f.write(f"{uuid}\t{folder}\t{filename}\n")
-                    return folder, filename, folder_path
+                        with open(self.map_path, "a", encoding="utf-8") as f:
+                            f.write(f"{relpath}\t{uuid}\t{timestamp}\n")
+                    else:
+                        return relpath
         raise Exception("ノード保存上限に達しました")
 
     def _generate_node_id(self):
         # UUIDベースのノードID
         node_id = str(uuid.uuid4())
-        uuid_set = set(self.uuid_map.values())
         # 既存のUUIDと重複しないようにする
-        while node_id in uuid_set:
+        while node_id in self.uuid_map:
             node_id = str(uuid.uuid4())
         return node_id
 
     def save_node(self, prompt, response, g):
-        prompt = normalize(prompt, cdata=True)
-        response = normalize(response, cdata=True)
-        folder, filename, folder_path = self._get_next_folder_and_filename()
-        node_path = os.path.join(folder_path, filename)
+        relpath = self._get_next_relpath_and_folder()
+        node_path = os.path.join(self.base_dir, "nodes", relpath)
 
         # 新規作成
         node_id = self._generate_node_id()
-        timestamp = datetime.datetime.utcnow().isoformat() + "Z"
+        timestamp = datetime.now()
         node = Node(
-            id=node_id,
-            timestamp=timestamp,
-            prompt=prompt,
-            response=response,
-            model=g.model,
-            user_stats={
-                "count": getattr(g, "prompt_count", 0),
-                "duration": getattr(g, "prompt_duration", 0.0),
-                "rate": getattr(g, "prompt_rate", 0.0),
-            },
-            assistant_stats={
-                "count": getattr(g, "eval_count", 0),
-                "duration": getattr(g, "eval_duration", 0.0),
-                "rate": getattr(g, "eval_rate", 0.0),
-            },
-            summary={
-                "updated": "false",
-                "last_built": timestamp,
-            },
-            tags=[],
-            path=node_path,
+            id = node_id,
+            timestamp = timestamp,
+            prompt = prompt,
+            response = response,
+            model = g.model,
+            user_count = getattr(g, "prompt_count", 0),
+            user_duration = getattr(g, "prompt_duration", 0.0),
+            assistant_count = getattr(g, "eval_count", 0),
+            assistant_duration = getattr(g, "eval_duration", 0.0),
+            summary = "",
+            summary_updated = False,
+            summary_last_built = timestamp,
+            tags = [],
+            path = node_path,
         )
         node.save()
 
         # キャッシュ・TSV追記
-        self.tsv_entries.append((folder, filename))
-        self.uuid_map[(folder, filename)] = node_id
+        self.add_node(relpath, node_id, timestamp)
         with open(self.map_path, "a", encoding="utf-8") as f:
-            f.write(f"{node_id}\t{folder}\t{filename}\n")
+            f.write(f"{relpath}\t{node_id}\t{timestamp}\n")
 
         return node
