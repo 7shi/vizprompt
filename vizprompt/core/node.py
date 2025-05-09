@@ -115,9 +115,14 @@ class NodeSaver:
 
     def _generate_node_id(self):
         # UUIDベースのノードID
-        return str(uuid.uuid4())
+        node_id = str(uuid.uuid4())
+        uuid_set = set(self.uuid_map.values())
+        # 既存のUUIDと重複しないようにする
+        while node_id in uuid_set:
+            node_id = str(uuid.uuid4())
+        return node_id
 
-    def save_node(self, prompt, response, model):
+    def save_node(self, prompt, response, g):
         prompt = normalize(prompt, cdata=True)
         response = normalize(response, cdata=True)
         folder, filename, folder_path = self._get_next_folder_and_filename()
@@ -136,10 +141,11 @@ class NodeSaver:
 {response}
 ]]></response>
 <metadata>
-<model>{model}</model>
+<model>{g.model}</model>
+<stats role="user" count="{g.prompt_count}" duration="{g.prompt_duration:.2f}" rate="{g.prompt_rate:.2f}" />
+<stats role="assistant" count="{g.eval_count}" duration="{g.eval_duration:.2f}" rate="{g.eval_rate:.2f}" />
 <summary updated="false" last_built="{timestamp}" />
 <tags />
-<token_count prompt="0" response="0" metadata="0" />
 </metadata>
 </node>
 '''.lstrip()

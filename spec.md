@@ -35,27 +35,32 @@ VizPromptは、チャット履歴をフローとして管理するノードベ�
 ```
 project/
 ├── nodes/                           # ノードディレクトリ
-│   ├── 00/                          # 最初のノード格納フォルダ (最大256ファイル)
+│   ├── 00/                          # 最初のノード格納ディレクトリ (最大256ファイル)
 │   │   ├── 00.xml                   # 連番でファイル名を管理
 │   │   ├── 01.xml
 │   │   └── ...
-│   ├── 01/                          # 257個目以降のノード格納フォルダ
+│   ├── 01/                          # 257個目以降のノード格納ディレクトリ
 │   │   └── ...
 │   └── ...                          # 必要に応じて増加
-├── flows/                           # フロー定義ファイル
-│   ├── main.yaml                    # メインフロー定義 (YAML形式)
-│   └── ...
+├── flows/                           # フローディレクトリ
+│   ├── 00/                          # 最初のフロー格納ディレクトリ (最大256ファイル)
+│   │   ├── 00.yaml                  # 連番でファイル名を管理 (YAML形式)
+│   │   ├── 01.yaml
+│   │   └── ...
+│   ├── 01/                          # 257個目以降のフロー格納ディレクトリ
+│   │   └── ...
 ├── metadata/                        # メタデータファイル
 │   ├── tags.yaml                    # タグ一覧 (YAML形式)
 │   ├── index.yaml                   # ノード検索用インデックス (YAML形式)
-│   └── node_map.tsv                 # ノードIDとファイルパスのマッピング (TSV形式)
+│   ├── node_map.tsv                 # ノードIDとファイルパスのマッピング (TSV形式)
+│   └── flow_map.tsv                 # フローIDとファイルパスのマッピング (TSV形式)
 └── config.yaml                      # 設定ファイル (YAML形式)
 ```
 
 ### 3.2 データ形式
 - ノードデータ: XML形式（CDATAセクションで改行保持）
 - メタデータ: YAML形式
-- ノードマッピング: TSV形式
+- マッピング: TSV形式
 - 設定: YAML形式
 
 ## 4. ノード構造
@@ -63,7 +68,7 @@ project/
 ### 4.1 ノードXMLファイル形式
 
 ```xml
-<node id="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" timestamp="2025-05-08T12:30:45Z">
+<node id="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" timestamp="2025-05-09T06:48:06.533720Z">
 <prompt><![CDATA[
 プロンプト内容をここに記載...
 （改行やフォーマットを保持）
@@ -74,9 +79,10 @@ project/
 ]]></response>
 <metadata>
 <model>gemini-2.0-flash-001</model>
-<summary updated="false" last_built="2025-05-08T12:32:10Z">ノードの要約内容</summary>
+<stats role="user" count="6" duration="1.20" rate="4.99" />
+<stats role="assistant" count="14" duration="0.08" rate="179.49" />
+<summary updated="false" last_built="2025-05-09T06:48:06.533720Z">ノードの要約内容</summary>
 <tags>タグ1,タグ2,タグ3</tags>
-<token_count prompt="345" response="547" metadata="76" />
 </metadata>
 </node>
 ```
@@ -89,11 +95,15 @@ project/
 - **response**: AIの応答内容（CDATA内）
 - **metadata**: ノードに関するメタ情報
   - **model**: 使用したLLMモデル名（例: gemini-2.0-flash-001）
+  - **stats**: 統計情報
+    - **role**: 統計の種類（user: プロンプト, assistant: モデル応答）
+    - **count**: トークン数
+    - **duration**: 処理時間（秒）
+    - **rate**: トークン/秒のレート
   - **summary**: ノードの要約（プロンプトと応答を含む）
   - **updated**: 要約更新フラグ（編集後未ビルド時はtrue）
   - **last_built**: 最後に要約を生成した時刻
-  - **tags**: カンマ区切りのタグリスト
-  - **token_count**: トークン数（prompt: プロンプト, response: 応答, metadata: メタデータ）
+  - **tags**: カンマ区切りのタグリスト（空の場合は<tags />として表現）
 - ※ノード間の接続情報（connections）はノードXMLには含めず、フロー定義ファイルで一元管理する
 
 ## 5. メタデータ管理
@@ -142,7 +152,19 @@ connections:
     to: 4
 ```
 
-### 5.3 タグ定義 (metadata/tags.yaml)
+### 5.3 フローマッピング (flow_map.tsv)
+
+```
+flow_id	folder	filename
+xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx	00	00.yaml
+xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx	00	01.yaml
+xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx	00	02.yaml
+...
+xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx	01	00.yaml
+...
+```
+
+### 5.4 タグ定義 (metadata/tags.yaml)
 
 ```yaml
 updated: 2025-05-08T13:55:22Z
@@ -155,7 +177,7 @@ tags:
     - xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 ```
 
-### 5.4 インデックス (metadata/index.yaml)
+### 5.5 インデックス (metadata/index.yaml)
 
 ```yaml
 updated: 2025-05-08T13:55:22Z
@@ -170,7 +192,7 @@ nodes:
     summary: 別のノードの要約
 ```
 
-### 5.5 設定ファイル (config.yaml)
+### 5.6 設定ファイル (config.yaml)
 
 ```yaml
 version: "1.0"

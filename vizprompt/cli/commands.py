@@ -2,16 +2,20 @@
 import argparse
 from ..core.node import NodeSaver
 
-def handle_chat(generate_content, prompt):
-    response, model = generate_content(prompt)
+def handle_chat(saver, generator, prompt):
     prompt = prompt.rstrip()
-    response = response.rstrip()
     print(f"User: {prompt}")
-    print(f"{model}: {response}")
+    print(f"{generator.model}: ", end="", flush=True)
+    for chunk in generator.generate(prompt):
+        print(chunk, end="", flush=True)
+    if not generator.text.endswith("\n"):
+        print() # 最後に改行
+    print()
+    generator.show_statistics()
+    response = generator.text.rstrip()
 
-    # --- ノード保存処理 ---
-    saver = NodeSaver(base_dir="project")
-    node_id, node_path = saver.save_node(prompt, response, model=model)
+    # ノード保存処理
+    node_id, node_path = saver.save_node(prompt, response, generator)
     print(f"チャット履歴をノードとして保存しました: {node_path} (ID: {node_id})")
 
 def run_cli():
@@ -33,16 +37,17 @@ def run_cli():
     args = parser.parse_args()
 
     if args.command == "chat":
-        generate_content = None
+        generator = None
         if args.service == "gemini":
             from ..llm import gemini
-            generate_content = gemini.generate_content
+            generator = gemini.GeminiGenerator()
         elif args.service == "ollama":
             from ..llm import ollama
-            generate_content = ollama.generate_content
-        if generate_content is None:
+            generator = ollama.OllamaGenerator()
+        if generator is None:
             chat_command_parser.print_help()
         else:
+            saver = NodeSaver(base_dir="project")
             if args.prompt is None:
                 # REPLモード
                 while True:
@@ -50,11 +55,11 @@ def run_cli():
                         prompt = input(">>> ").rstrip()
                         if not prompt:
                             break
-                        handle_chat(generate_content, prompt)
+                        handle_chat(saver, generator, prompt)
                     except EOFError:
                         break
             else:
-                handle_chat(generate_content, args.prompt)
+                handle_chat(saver, generator, args.prompt)
     else:
         parser.print_help()
 
