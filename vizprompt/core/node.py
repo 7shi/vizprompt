@@ -6,19 +6,20 @@ from xml.dom.minidom import Document
 
 def _get_uuid_and_timestamp_from_xml(path):
     """
-    XMLファイルのルート要素id属性とtimestamp属性を取得（なければゼロUUIDと空文字を返す）
+    XMLファイルのルート要素id属性とtimestamp属性を取得（なければゼロUUIDと現在のタイムスタンプを返す）
     """
     try:
         for _, elem in ET.iterparse(path, events=("start",)):
             if elem.tag == "node":
-                uuid_str = elem.attrib.get("id", str(uuid.UUID(int=0)))
-                timestamp = elem.attrib.get("timestamp", "")
-                return uuid_str, timestamp
+                if uuid_str := elem.attrib.get("id", None):
+                    if timestamp := elem.attrib.get("timestamp", None):
+                        return uuid_str, datetime.fromisoformat(timestamp)
+                break
             else:
                 break
     except Exception:
         pass
-    return str(uuid.UUID(int=0)), ""
+    return str(uuid.UUID(int=0)), datetime.now().astimezone()
 
 class Node:
     """
@@ -54,7 +55,7 @@ class Node:
         doc = Document()
         node = doc.createElement('node')
         node.setAttribute('id', self.id)
-        node.setAttribute('timestamp', self.timestamp.astimezone().isoformat())
+        node.setAttribute('timestamp', self.timestamp.isoformat())
         doc.appendChild(node)
         contents = doc.createElement('contents')
         for content in self.contents:
@@ -76,7 +77,7 @@ class Node:
         metadata.appendChild(model)
         summary = doc.createElement('summary')
         summary.setAttribute('updated', str(self.summary_updated).lower())
-        summary.setAttribute('last_built', self.summary_last_built.astimezone().isoformat())
+        summary.setAttribute('last_built', self.summary_last_built.isoformat())
         if self.summary:
             summary.appendChild(doc.createCDATASection(f'\n{self.summary.rstrip()}\n'))
         metadata.appendChild(summary)
@@ -144,6 +145,7 @@ class NodeManager:
                         xml_path = os.path.join(self.nodes_dir, folder, fname)
                         uuid, timestamp = _get_uuid_and_timestamp_from_xml(xml_path)
                         self.add_node(relpath, uuid, timestamp)
+                        changed = True
 
         # 3. 過剰分を削除
         for relpath in list(self.tsv_entries.keys()):
@@ -194,7 +196,7 @@ class NodeManager:
 
         # 新規作成
         node_id = self._generate_node_id()
-        timestamp = datetime.now()
+        timestamp = datetime.now().astimezone()
         node = Node(
             id = node_id,
             timestamp = timestamp,
@@ -224,6 +226,6 @@ class NodeManager:
         # キャッシュ・TSV追記
         self.add_node(relpath, node_id, timestamp)
         with open(self.map_path, "a", encoding="utf-8") as f:
-            f.write(f"{relpath}\t{node_id}\t{timestamp}\n")
+            f.write(f"{relpath}\t{node_id}\t{timestamp.isoformat()}\n")
 
         return node
