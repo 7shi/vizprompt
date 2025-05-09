@@ -26,6 +26,72 @@ def _get_uuid_from_xml(path):
         pass
     return str(uuid.UUID(int=0))
 
+class Node:
+    """
+    XMLノード情報と一対一対応するデータクラス
+    """
+    def __init__(
+        self,
+        id: str,
+        timestamp: str,
+        prompt: str,
+        response: str,
+        model: str,
+        user_stats: dict,
+        assistant_stats: dict,
+        summary: dict,
+        tags: list,
+        path: str,
+    ):
+        self.id = id
+        self.timestamp = timestamp
+        self.prompt = prompt
+        self.response = response
+        self.model = model
+        self.user_stats = user_stats
+        self.assistant_stats = assistant_stats
+        self.summary = summary
+        self.tags = tags
+        self.path = path
+
+    def to_xml(self) -> str:
+        """
+        NodeインスタンスをXML文字列に変換
+        """
+        prompt = normalize(self.prompt, cdata=True)
+        response = normalize(self.response, cdata=True)
+        # user_stats, assistant_stats, summary, tagsはdict/list前提
+        user = self.user_stats
+        assistant = self.assistant_stats
+        summary = self.summary
+        tags = self.tags
+        xml = f'''<?xml version="1.0" encoding="utf-8"?>
+<node id="{self.id}" timestamp="{self.timestamp}">
+<prompt><![CDATA[
+{prompt}
+]]></prompt>
+<response><![CDATA[
+{response}
+]]></response>
+<metadata>
+<model>{self.model}</model>
+<stats role="user" count="{user.get("count",0)}" duration="{user.get("duration",0):.2f}" rate="{user.get("rate",0):.2f}" />
+<stats role="assistant" count="{assistant.get("count",0)}" duration="{assistant.get("duration",0):.2f}" rate="{assistant.get("rate",0):.2f}" />
+<summary updated="{summary.get("updated","false")}" last_built="{summary.get("last_built",self.timestamp)}" />
+<tags>{''.join(f'<tag>{t}</tag>' for t in tags)}</tags>
+</metadata>
+</node>
+'''.lstrip()
+        return xml
+
+    def save(self):
+        """
+        NodeインスタンスをXMLファイルに保存
+        """
+        xml = self.to_xml()
+        with open(self.path, "w", encoding="utf-8") as f:
+            f.write(xml)
+
 class NodeManager:
     def __init__(self, base_dir="project"):
         self.base_dir = base_dir
@@ -67,6 +133,9 @@ class NodeManager:
                     if entry not in tsv_set:
                         xml_path = os.path.join(self.nodes_dir, folder, fname)
                         uuid = _get_uuid_from_xml(xml_path)
+                        while uuid in self.uuid_map.values():
+                            # UUID重複時は新しいUUIDを生成
+                            uuid = str(uuid.uuid4())
                         self.tsv_entries.append(entry)
                         self.uuid_map[entry] = uuid
                         changed = True
@@ -131,26 +200,30 @@ class NodeManager:
         # 新規作成
         node_id = self._generate_node_id()
         timestamp = datetime.datetime.utcnow().isoformat() + "Z"
-        xml = f'''
-<?xml version="1.0" encoding="utf-8"?>
-<node id="{node_id}" timestamp="{timestamp}">
-<prompt><![CDATA[
-{prompt}
-]]></prompt>
-<response><![CDATA[
-{response}
-]]></response>
-<metadata>
-<model>{g.model}</model>
-<stats role="user" count="{g.prompt_count}" duration="{g.prompt_duration:.2f}" rate="{g.prompt_rate:.2f}" />
-<stats role="assistant" count="{g.eval_count}" duration="{g.eval_duration:.2f}" rate="{g.eval_rate:.2f}" />
-<summary updated="false" last_built="{timestamp}" />
-<tags />
-</metadata>
-</node>
-'''.lstrip()
-        with open(node_path, "w", encoding="utf-8") as f:
-            f.write(xml)
+        node = Node(
+            id=node_id,
+            timestamp=timestamp,
+            prompt=prompt,
+            response=response,
+            model=g.model,
+            user_stats={
+                "count": getattr(g, "prompt_count", 0),
+                "duration": getattr(g, "prompt_duration", 0.0),
+                "rate": getattr(g, "prompt_rate", 0.0),
+            },
+            assistant_stats={
+                "count": getattr(g, "eval_count", 0),
+                "duration": getattr(g, "eval_duration", 0.0),
+                "rate": getattr(g, "eval_rate", 0.0),
+            },
+            summary={
+                "updated": "false",
+                "last_built": timestamp,
+            },
+            tags=[],
+            path=node_path,
+        )
+        node.save()
 
         # キャッシュ・TSV追記
         self.tsv_entries.append((folder, filename))
@@ -158,4 +231,4 @@ class NodeManager:
         with open(self.map_path, "a", encoding="utf-8") as f:
             f.write(f"{node_id}\t{folder}\t{filename}\n")
 
-        return node_id, node_path
+        return node

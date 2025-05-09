@@ -2,7 +2,7 @@
 import argparse
 from ..core.node import NodeManager
 
-def handle_chat(saver, generator, prompt):
+def handle_chat(manager, generator, prompt):
     prompt = prompt.rstrip()
     print(f"User: {prompt}")
     print(f"{generator.model}: ", end="", flush=True)
@@ -15,8 +15,8 @@ def handle_chat(saver, generator, prompt):
     response = generator.text.rstrip()
 
     # ノード保存処理
-    node_id, node_path = saver.save_node(prompt, response, generator)
-    print(f"チャット履歴をノードとして保存しました: {node_path} (ID: {node_id})")
+    node = manager.save_node(prompt, response, generator)
+    print(f"チャット履歴をノードとして保存しました: {node.path} (ID: {node.id})")
 
 def run_cli():
     parser = argparse.ArgumentParser(description="VizPrompt CLI")
@@ -47,7 +47,7 @@ def run_cli():
         if generator is None:
             chat_command_parser.print_help()
         else:
-            saver = NodeManager(base_dir="project")
+            manager = NodeManager(base_dir="project")
             if args.prompt is None:
                 # REPLモード
                 while True:
@@ -55,11 +55,11 @@ def run_cli():
                         prompt = input(">>> ").rstrip()
                         if not prompt:
                             break
-                        handle_chat(saver, generator, prompt)
+                        handle_chat(manager, generator, prompt)
                     except EOFError:
                         break
             else:
-                handle_chat(saver, generator, args.prompt)
+                handle_chat(manager, generator, args.prompt)
     else:
         parser.print_help()
 
