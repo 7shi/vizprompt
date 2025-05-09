@@ -4,20 +4,43 @@ import time
 from openai import OpenAI
 from .base import BaseGenerator
 
-if default_api_key := os.getenv("OPENAI_API_KEY"):
-    default_url = "https://api.openai.com/v1"
-    default_model = "gpt-4.1"
-elif default_api_key := os.getenv("OPENROUTER_API_KEY"):
-    default_url = "https://openrouter.ai/api/v1"
-    default_model = "qwen/qwen3-4b:free"
-elif default_api_key := os.getenv("GROQ_API_KEY"):
-    default_url = "https://api.groq.com/openai/v1"
-    default_model = "gemma2-9b-it"
+class Settings:
+    """
+    APIのデフォルト設定を管理するクラス。
+    """
+    def __init__(self, api_key, url, model):
+        self.api_key = api_key
+        self.url = url
+        self.model = model
+
+class Defaults:
+    OpenAI = Settings(
+        api_key=os.getenv("OPENAI_API_KEY"),
+        url="https://api.openai.com/v1",
+        model="gpt-4.1",
+    )
+    OpenRouter = Settings(
+        api_key=os.getenv("OPENROUTER_API_KEY"),
+        url="https://openrouter.ai/api/v1",
+        model="qwen/qwen3-4b:free",
+    )
+    Groq = Settings(
+        api_key=os.getenv("GROQ_API_KEY"),
+        url="https://api.groq.com/openai/v1",
+        model="gemma2-9b-it",
+    )
+
+if Defaults.OpenAI.api_key:
+    defaults = Defaults.OpenAI
+elif Defaults.OpenRouter.api_key:
+    defaults = Defaults.OpenRouter
+elif Defaults.Groq.api_key:
+    defaults = Defaults.Groq
 else:
     raise ValueError("環境変数 OPENAI_API_KEY または OPENROUTER_API_KEY または GROQ_API_KEY が設定されていません。")
 
 class OpenAIGenerator(BaseGenerator):
-    def __init__(self, model=default_model, url=default_url, api_key=default_api_key):
+    def __init__(self, model=defaults.model, url=defaults.url, api_key=defaults.api_key):
         """
         OpenAIGeneratorの初期化。
 
@@ -67,7 +90,6 @@ class OpenAIGenerator(BaseGenerator):
         self.prompt_duration = (time2 - time1) if time2 else 0
         self.eval_duration = (time3 - time2) if time2 else 0
         if usage:
-            print(f"usage: {usage}")
             if v := usage.get("prompt_tokens", None):
                 self.prompt_count = int(v)
             if v := usage.get("completion_tokens", None):
