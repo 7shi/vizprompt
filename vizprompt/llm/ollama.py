@@ -14,6 +14,36 @@ class OllamaGenerator(BaseGenerator):
         """
         super().__init__(model)
 
+    def chat(self, messages):
+        """
+        Ollamaにプロンプトを送信し、ストリーム応答を取得します。
+
+        Args:
+            messages: Ollamaに送信するメッセージのリスト。
+
+        Yields:
+            応答のチャンク文字列。
+        """
+        response = ollama.chat(
+            model=self.model,
+            messages=messages,
+            stream=True,
+        )
+        text = ""
+        count = 0
+        for chunk in response:
+            content = chunk["message"]["content"]
+            text += content
+            count += 1
+            yield content
+        self.text = text
+        self.prompt_count    = chunk.get("prompt_eval_count", 0)
+        self.prompt_duration = chunk.get("prompt_eval_duration", 0) / 1e9
+        self.prompt_rate     = self.prompt_count / self.prompt_duration if self.prompt_duration > 0 else 0
+        self.eval_count      = chunk.get("eval_count", count)
+        self.eval_duration   = chunk.get("eval_duration", 0) / 1e9
+        self.eval_rate       = self.eval_count / self.eval_duration if self.eval_duration > 0 else 0
+
     def generate(self, prompt: str):
         """
         Ollamaにプロンプトを送信し、ストリーム応答を取得します。
@@ -24,18 +54,10 @@ class OllamaGenerator(BaseGenerator):
         Yields:
             応答のチャンク文字列。
         """
-        response = ollama.generate(model=self.model, prompt=prompt, stream=True)
-        text = ""
-        for chunk in response:
-            text += chunk.response
-            yield chunk.response
-        self.text = text
-        self.prompt_count    = chunk.prompt_eval_count
-        self.prompt_duration = chunk.prompt_eval_duration / 1e9
-        self.prompt_rate     = self.prompt_count / self.prompt_duration if self.prompt_duration > 0 else 0
-        self.eval_count      = chunk.eval_count
-        self.eval_duration   = chunk.eval_duration / 1e9
-        self.eval_rate       = self.eval_count / self.eval_duration if self.eval_duration > 0 else 0
+        messages = [
+             { "role": "user", "content": prompt},
+        ]
+        return self.chat(messages)
 
 if __name__ == '__main__':
     user_prompt = "こんにちは、自己紹介してください。"

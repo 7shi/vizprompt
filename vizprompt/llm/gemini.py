@@ -96,7 +96,18 @@ class GeminiGenerator(BaseGenerator):
         Yields:
             応答のチャンク文字列。
         """
-        return self.generate_content_retry(None, [prompt])
+        config = genai.types.GenerateContentConfig(
+            response_mime_type="text/plain",
+        )
+        contents = [
+            genai.types.Content(
+                role="user",
+                parts=[
+                    genai.types.Part.from_text(text=prompt),
+                ],
+            ),
+        ]
+        return self.generate_content_retry(config, contents)
 
 if __name__ == '__main__':
     # 簡単なテスト用（環境変数 GEMINI_API_KEY を設定して実行）
