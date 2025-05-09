@@ -1,0 +1,108 @@
+'''OpenAI APIと通信するためのモジュール'''
+import os
+import time
+from openai import OpenAI
+from .base import BaseGenerator
+
+if default_api_key := os.getenv("OPENAI_API_KEY"):
+    default_url = "https://api.openai.com/v1"
+    default_model = "gpt-4.1"
+elif default_api_key := os.getenv("OPENROUTER_API_KEY"):
+    default_url = "https://openrouter.ai/api/v1"
+    default_model = "qwen/qwen3-4b:free"
+elif default_api_key := os.getenv("GROQ_API_KEY"):
+    default_url = "https://api.groq.com/openai/v1"
+    default_model = "gemma2-9b-it"
+else:
+    raise ValueError("環境変数 OPENAI_API_KEY または OPENROUTER_API_KEY または GROQ_API_KEY が設定されていません。")
+
+class OpenAIGenerator(BaseGenerator):
+    def __init__(self, model=default_model, url=default_url, api_key=default_api_key):
+        """
+        OpenAIGeneratorの初期化。
+
+        Args:
+            model: 使用するモデルの名前。
+            url: APIのURL。
+        """
+        super().__init__(model)
+        self.url = url
+        self.client = OpenAI(base_url=url, api_key=api_key)
+
+    def chat(self, messages):
+        """
+        OpenAIにプロンプトを送信し、ストリーム応答を取得します。
+
+        Args:
+            messages: OpenAIに送信するメッセージのリスト。
+
+        Yields:
+            応答のチャンク文字列。
+        """
+        time1 = time.monotonic()
+        stream = self.client.chat.completions.create(
+            model=self.model,
+            messages=messages,
+            stream=True,
+            stream_options={"include_usage": True},
+        )
+        time2 = None
+        text = ""
+        count = 0
+        usage = None
+        for chunk in stream:
+            if chunk.choices and chunk.choices[0].delta.content is not None:
+                content = chunk.choices[0].delta.content
+                text += content
+                count += 1
+                if not time2:
+                    time2 = time.monotonic()
+                yield content
+            if hasattr(chunk, "usage") and chunk.usage:
+                usage = chunk.usage.to_dict()
+        time3 = time.monotonic()
+        self.text = text
+        self.prompt_count = 0
+        self.eval_count = count
+        self.prompt_duration = (time2 - time1) if time2 else 0
+        self.eval_duration = (time3 - time2) if time2 else 0
+        if usage:
+            print(f"usage: {usage}")
+            if v := usage.get("prompt_tokens", None):
+                self.prompt_count = int(v)
+            if v := usage.get("completion_tokens", None):
+                self.eval_count = int(v)
+            if v := usage.get("prompt_time", None):
+                self.prompt_duration = float(v)
+            if v := usage.get("completion_time", None):
+                self.eval_duration = float(v)
+        self.prompt_rate = self.prompt_count / self.prompt_duration if self.prompt_duration > 0 else 0
+        self.eval_rate = self.eval_count / self.eval_duration if self.eval_duration > 0 else 0
+
+    def generate(self, prompt: str):
+        """
+        OpenAIにプロンプトを送信し、ストリーム応答を取得します。
+
+        Args:
+            prompt: OpenAIに送信するプロンプト文字列。
+
+        Yields:
+            応答のチャンク文字列。
+        """
+        messages = [
+            {"role": "user", "content": prompt},
+        ]
+        return self.chat(messages)
+
+if __name__ == '__main__':
+    user_prompt = "こんにちは、自己紹介してください。"
+    print(f"ユーザー: {user_prompt}")
+    g = OpenAIGenerator()
+    print(f"{g.model}: ", end="")
+    response = g.generate(user_prompt)
+    for chunk in response:
+        print(chunk, end="", flush=True)
+    if not g.text.endswith("\n"):
+        print() # 最後に改行
+    print()
+    g.show_statistics()

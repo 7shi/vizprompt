@@ -34,6 +34,10 @@ def run_cli():
     ollama_parser = chat_subparsers.add_parser("ollama", help="Ollamaとチャットします")
     ollama_parser.add_argument("prompt", type=str, nargs="?", help="Ollamaへのプロンプト")
 
+    # 'chat openai' サブコマンド
+    openai_parser = chat_subparsers.add_parser("openai", help="OpenAIとチャットします")
+    openai_parser.add_argument("prompt", type=str, nargs="?", help="OpenAIへのプロンプト")
+
     args = parser.parse_args()
 
     if args.command == "chat":
@@ -44,6 +48,9 @@ def run_cli():
         elif args.service == "ollama":
             from ..llm import ollama
             generator = ollama.OllamaGenerator()
+        elif args.service == "openai":
+            from ..llm import openai
+            generator = openai.OpenAIGenerator()
         if generator is None:
             chat_command_parser.print_help()
         else:
