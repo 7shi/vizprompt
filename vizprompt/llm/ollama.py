@@ -33,9 +33,10 @@ class OllamaGenerator(BaseGenerator):
         count = 0
         for chunk in response:
             content = chunk["message"]["content"]
-            text += content
-            count += 1
-            yield content
+            if content:
+                text += content
+                count += 1
+                yield content
         self.text = text
         self.prompt_count    = chunk.get("prompt_eval_count", 0)
         self.prompt_duration = chunk.get("prompt_eval_duration", 0) / 1e9

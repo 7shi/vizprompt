@@ -45,11 +45,12 @@ class GeminiGenerator(BaseGenerator):
                 text = ""
                 count = 0
                 for chunk in response:
-                    text += chunk.text
-                    count += 1
-                    if not time2:
-                        time2 = time.monotonic()
-                    yield chunk.text
+                    if chunk.text:
+                        text += chunk.text
+                        count += 1
+                        if not time2:
+                            time2 = time.monotonic()
+                        yield chunk.text
                 time3 = time.monotonic()
                 self.text = text
                 chunk_dict = chunk.to_json_dict()
