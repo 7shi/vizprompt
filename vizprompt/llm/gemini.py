@@ -65,9 +65,9 @@ class GeminiGenerator(BaseGenerator):
                 self.eval_rate = self.eval_count / self.eval_duration if self.eval_duration > 0 else 0
                 return
             except genai.errors.APIError as e:
-                if hasattr(e, "code") and e.code in [429, 500, 503]:
+                if hasattr(e, "code") and e.code in [429, 500, 502, 503]:
                     print(e, file=sys.stderr)
-                    delay = 15
+                    delay = 30
                     if e.code == 429:
                         details = getattr(e, "details", {}).get("error", {}).get("details", [])
                         rd = None
