@@ -72,20 +72,26 @@ project/
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
 <node id="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" timestamp="2025-05-09T06:48:06.533720+09:00">
-<prompt><![CDATA[
+<contents>
+<text role="user" count="6" duration="1.20" rate="4.99"><![CDATA[
 プロンプト内容をここに記載...
 （改行やフォーマットを保持）
-]]></prompt>
-<response><![CDATA[
+]]></text>
+<text role="assistant" count="14" duration="0.08" rate="179.49"><![CDATA[
 応答内容をここに記載...
 （改行やフォーマットを保持）
-]]></response>
+]]></text>
+</contents>
 <metadata>
 <model>gemini-2.0-flash-001</model>
-<stats role="user" count="6" duration="1.20" rate="4.99" />
-<stats role="assistant" count="14" duration="0.08" rate="179.49" />
-<summary updated="false" last_built="2025-05-09T06:48:06.533720+09:00">ノードの要約内容</summary>
-<tags><tag>タグ1</tag><tag>タグ2</tag><tag>タグ3</tag></tags>
+<summary updated="false" last_built="2025-05-09T06:48:06.533720+09:00"><![CDATA[
+ノードの要約内容
+]]></summary>
+<tags>
+<tag>タグ1</tag>
+<tag>タグ2</tag>
+<tag>タグ3</tag>
+</tags>
 </metadata>
 </node>
 ```
@@ -94,15 +100,14 @@ project/
 
 - **id**: ノード識別子（タイムスタンプベース）
 - **timestamp**: ノード作成日時
-- **prompt**: ユーザーのプロンプト内容（CDATA内）
-- **response**: AIの応答内容（CDATA内）
-- **metadata**: ノードに関するメタ情報
-  - **model**: 使用したLLMモデル名（例: gemini-2.0-flash-001）
-  - **stats**: 統計情報
-    - **role**: 統計の種類（user: プロンプト, assistant: モデル応答）
+- **contents**: ノードの内容
+  - **text**: プロンプトと応答の内容（CDATA内）
+    - **role**: 発話者の役割（user: ユーザー, assistant: モデル）
     - **count**: トークン数
     - **duration**: 処理時間（秒）
     - **rate**: トークン/秒のレート
+- **metadata**: ノードに関するメタ情報
+  - **model**: 使用したLLMモデル名（例: gemini-2.0-flash-001）
   - **summary**: ノードの要約（プロンプトと応答を含む）
   - **updated**: 要約更新フラグ（編集後未ビルド時はtrue）
   - **last_built**: 最後に要約を生成した時刻

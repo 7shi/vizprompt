@@ -29,13 +29,8 @@ class Node:
         *, # 引数名を指定して渡す
         id: str,
         timestamp: datetime,
-        prompt: str,
-        response: str,
+        contents: list[dict],
         model: str,
-        user_count: int,
-        user_duration: float,
-        assistant_count: int,
-        assistant_duration: float,
         summary: str,
         summary_updated: bool,
         summary_last_built: datetime,
@@ -44,13 +39,8 @@ class Node:
     ):
         self.id = id
         self.timestamp = timestamp
-        self.prompt = prompt
-        self.response = response
+        self.contents = contents
         self.model = model
-        self.user_count = user_count
-        self.user_duration = user_duration
-        self.assistant_count = assistant_count
-        self.assistant_duration = assistant_duration
         self.summary = summary
         self.summary_updated = summary_updated
         self.summary_last_built = summary_last_built
@@ -66,34 +56,29 @@ class Node:
         node.setAttribute('id', self.id)
         node.setAttribute('timestamp', self.timestamp.astimezone().isoformat())
         doc.appendChild(node)
-        prompt = doc.createElement('prompt')
-        prompt.appendChild(doc.createCDATASection(f'\n{self.prompt.rstrip()}\n'))
-        node.appendChild(prompt)
-        response = doc.createElement('response')
-        response.appendChild(doc.createCDATASection(f'\n{self.response.rstrip()}\n'))
-        node.appendChild(response)
+        contents = doc.createElement('contents')
+        for content in self.contents:
+            content_elem = doc.createElement('content')
+            content_elem.setAttribute('role', content['role'])
+            count = content.get('count', 0)
+            content_elem.setAttribute('count', str(count))
+            duration = content.get('duration', 0)
+            content_elem.setAttribute('duration', f'{duration:.2f}')
+            rate = count / duration if duration > 0 else 0
+            content_elem.setAttribute('rate', f'{rate:.2f}')
+            if text := content.get('text', None):
+                content_elem.appendChild(doc.createCDATASection(f'\n{text.rstrip()}\n'))
+            contents.appendChild(content_elem)
+        node.appendChild(contents)
         metadata = doc.createElement('metadata')
         model = doc.createElement('model')
         model.appendChild(doc.createTextNode(self.model))
         metadata.appendChild(model)
-        stats_user = doc.createElement('stats')
-        stats_user.setAttribute('role', 'user')
-        stats_user.setAttribute('count', str(self.user_count))
-        stats_user.setAttribute('duration', f'{self.user_duration:.2f}')
-        user_rate = self.user_count / self.user_duration if self.user_duration > 0 else 0
-        stats_user.setAttribute('rate', f'{user_rate:.2f}')
-        metadata.appendChild(stats_user)
-        stats_assistant = doc.createElement('stats')
-        stats_assistant.setAttribute('role', 'assistant')
-        stats_assistant.setAttribute('count', str(self.assistant_count))
-        stats_assistant.setAttribute('duration', f'{self.assistant_duration:.2f}')
-        assistant_rate = self.assistant_count / self.assistant_duration if self.assistant_duration > 0 else 0
-        stats_assistant.setAttribute('rate', f'{assistant_rate:.2f}')
-        metadata.appendChild(stats_assistant)
         summary = doc.createElement('summary')
         summary.setAttribute('updated', str(self.summary_updated).lower())
         summary.setAttribute('last_built', self.summary_last_built.astimezone().isoformat())
-        summary.appendChild(doc.createTextNode(self.summary))
+        if self.summary:
+            summary.appendChild(doc.createCDATASection(f'\n{self.summary.rstrip()}\n'))
         metadata.appendChild(summary)
         tags = doc.createElement('tags')
         for tag in self.tags:
@@ -213,13 +198,21 @@ class NodeManager:
         node = Node(
             id = node_id,
             timestamp = timestamp,
-            prompt = prompt,
-            response = response,
+            contents = [
+                {
+                    "role": "user",
+                    "count": g.prompt_count,
+                    "duration": g.prompt_duration,
+                    "text": prompt,
+                },
+                {
+                    "role": "assistant",
+                    "count": g.eval_count,
+                    "duration": g.eval_duration,
+                    "text": response,
+                },
+            ],
             model = g.model,
-            user_count = getattr(g, "prompt_count", 0),
-            user_duration = getattr(g, "prompt_duration", 0.0),
-            assistant_count = getattr(g, "eval_count", 0),
-            assistant_duration = getattr(g, "eval_duration", 0.0),
             summary = "",
             summary_updated = False,
             summary_last_built = timestamp,
