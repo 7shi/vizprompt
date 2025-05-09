@@ -1,9 +1,10 @@
 '''Ollama APIと通信するためのモジュール'''
 import ollama
+from .base import BaseGenerator
 
 default_model = "gemma3:1b"
 
-class OllamaGenerator:
+class OllamaGenerator(BaseGenerator):
     def __init__(self, model = default_model):
         """
         OllamaGeneratorの初期化。
@@ -11,14 +12,7 @@ class OllamaGenerator:
         Args:
             model_name: 使用するOllamaモデルの名前。
         """
-        self.model = model
-        self.text  = ""
-        self.prompt_count    = 0
-        self.prompt_duration = 0
-        self.prompt_rate     = 0
-        self.eval_count      = 0
-        self.eval_duration   = 0
-        self.eval_rate       = 0
+        super().__init__(model)
 
     def generate(self, prompt: str):
         """
@@ -42,17 +36,6 @@ class OllamaGenerator:
         self.eval_count      = chunk.eval_count
         self.eval_duration   = chunk.eval_duration / 1e9
         self.eval_rate       = self.eval_count / self.eval_duration if self.eval_duration > 0 else 0
-
-    def show_statistics(self):
-        """
-        モデルの統計情報を表示します。
-        """
-        print(f"prompt_count   : {self.prompt_count}")
-        print(f"prompt_duration: {self.prompt_duration:.2f} s")
-        print(f"prompt_rate    : {self.prompt_rate:.2f} tokens/s")
-        print(f"eval_count     : {self.eval_count}")
-        print(f"eval_duration  : {self.eval_duration:.2f} s")
-        print(f"eval_rate      : {self.eval_rate:.2f} tokens/s")
 
 if __name__ == '__main__':
     user_prompt = "こんにちは、自己紹介してください。"

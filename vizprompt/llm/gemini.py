@@ -1,6 +1,7 @@
 '''Gemini APIと通信するためのモジュール'''
 import os, sys, re, time
 from google import genai
+from .base import BaseGenerator
 
 default_model = "gemini-2.0-flash-001"
 
@@ -10,7 +11,7 @@ if not api_key:
 
 client = genai.Client(api_key=api_key)
 
-class GeminiGenerator:
+class GeminiGenerator(BaseGenerator):
     def __init__(self, model = default_model):
         """
         GeminiGeneratorの初期化。
@@ -18,14 +19,7 @@ class GeminiGenerator:
         Args:
             model_name: 使用するGeminiモデルの名前。
         """
-        self.model = model
-        self.text  = ""
-        self.prompt_count    = 0
-        self.prompt_duration = 0
-        self.prompt_rate     = 0
-        self.eval_count      = 0
-        self.eval_duration   = 0
-        self.eval_rate       = 0
+        super().__init__(model)
 
     def generate_content_retry(self, config, contents):
         """
@@ -103,25 +97,6 @@ class GeminiGenerator:
             応答のチャンク文字列。
         """
         return self.generate_content_retry(None, [prompt])
-
-    def show_statistics(self):
-        """
-        モデルの統計情報を表示します。
-        """
-        print(f"count   : {self.count}")
-        print(f"duration: {self.duration:.2f} s")
-        print(f"rate    : {self.rate:.2f} tokens/s")
-
-    def show_statistics(self):
-        """
-        モデルの統計情報を表示します。
-        """
-        print(f"prompt_count   : {self.prompt_count}")
-        print(f"prompt_duration: {self.prompt_duration:.2f} s")
-        print(f"prompt_rate    : {self.prompt_rate:.2f} tokens/s")
-        print(f"eval_count     : {self.eval_count}")
-        print(f"eval_duration  : {self.eval_duration:.2f} s")
-        print(f"eval_rate      : {self.eval_rate:.2f} tokens/s")
 
 if __name__ == '__main__':
     # 簡単なテスト用（環境変数 GEMINI_API_KEY を設定して実行）
