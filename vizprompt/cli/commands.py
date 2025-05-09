@@ -1,6 +1,6 @@
 '''VizPromptのコマンドラインインターフェース'''
 import argparse
-from ..core.node import NodeSaver
+from ..core.node import NodeManager
 
 def handle_chat(saver, generator, prompt):
     prompt = prompt.rstrip()
@@ -47,7 +47,7 @@ def run_cli():
         if generator is None:
             chat_command_parser.print_help()
         else:
-            saver = NodeSaver(base_dir="project")
+            saver = NodeManager(base_dir="project")
             if args.prompt is None:
                 # REPLモード
                 while True:

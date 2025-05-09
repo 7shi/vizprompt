@@ -26,7 +26,7 @@ def _get_uuid_from_xml(path):
         pass
     return str(uuid.UUID(int=0))
 
-class NodeSaver:
+class NodeManager:
     def __init__(self, base_dir="project"):
         self.base_dir = base_dir
         self.nodes_dir = os.path.join(base_dir, "nodes")
