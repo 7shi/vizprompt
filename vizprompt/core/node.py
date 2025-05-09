@@ -134,7 +134,14 @@ class NodeManager:
         self.uuid_map = {}
         if os.path.exists(self.map_path):
             with open(self.map_path, encoding="utf-8") as f:
+                first = True
                 for line in f:
+                    if first:
+                        # ヘッダ行ならスキップ
+                        if line.strip().lower().startswith("relpath"):
+                            first = False
+                            continue
+                        first = False
                     parts = line.strip().split("\t")
                     if len(parts) == 3:
                         self.add_node(*parts)
@@ -155,15 +162,19 @@ class NodeManager:
                         self.add_node(relpath, uuid, timestamp)
                         changed = True
 
-        # 3. 過剰分を削除
+        # 3. 過剰分（uuid_mapのどのリストにも含まれないrelpath）を削除
+        all_uuid_relpaths = set()
+        for relpaths in self.uuid_map.values():
+            all_uuid_relpaths.update(relpaths)
         for relpath in list(self.tsv_entries.keys()):
-            if relpath not in self.uuid_map:
+            if relpath not in all_uuid_relpaths:
                 self.tsv_entries.pop(relpath)
                 changed = True
 
         # 4. フラグが立っていればTSV書き直し
         if changed:
             with open(self.map_path, "w", encoding="utf-8") as f:
+                f.write("relpath\tuuid\ttimestamp\n")
                 for relpath, (uuid, timestamp) in self.tsv_entries.items():
                     f.write(f"{relpath}\t{uuid}\t{timestamp}\n")
 
@@ -233,7 +244,10 @@ class NodeManager:
 
         # キャッシュ・TSV追記
         self.add_node(relpath, node_id, timestamp)
+        write_header = not os.path.exists(self.map_path)
         with open(self.map_path, "a", encoding="utf-8") as f:
+            if write_header:
+                f.write("relpath\tuuid\ttimestamp\n")
             f.write(f"{relpath}\t{node_id}\t{timestamp.isoformat()}\n")
 
         return node
