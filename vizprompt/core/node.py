@@ -117,7 +117,15 @@ class NodeManager:
         timestamp: ノードのタイムスタンプ
         """
         self.tsv_entries[relpath] = (uuid, timestamp)
-        self.uuid_map.setdefault(uuid, []).append(relpath)
+        lst = self.uuid_map.setdefault(uuid, [])
+        # タイムスタンプ降順（新しい順）で挿入、同一なら先頭
+        for i, rp in enumerate(lst):
+            _, ts = self.tsv_entries[rp]
+            if timestamp >= ts:
+                lst.insert(i, relpath)
+                return
+        # 末尾に追加
+        lst.append(relpath)
 
     # Nodeファイルとnode_map.tsvの整合性チェック・自動修正
     def _check_and_update_node_map(self):
