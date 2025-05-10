@@ -59,7 +59,7 @@ class UUIDTimestampManager:
             folder_path = os.path.join(self.data_dir, folder)
             if not os.path.isdir(folder_path):
                 continue
-            regex = re.compile(r"[0-9a-f]+\." + re.escape(self.ext))
+            regex = re.compile(r"[0-9]+\." + re.escape(self.ext))
             for fname in os.listdir(folder_path):
                 if regex.match(fname):
                     relpath = f"{folder}/{fname}"
@@ -107,22 +107,23 @@ class UUIDTimestampManager:
         空きのrelpathを探す
         """
         used = set(self.tsv_entries.keys())
-        for i in range(256):
-            folder = f"{i:02x}"
-            folder_path = os.path.join(self.data_dir, folder)
-            os.makedirs(folder_path, exist_ok=True)
-            for idx in range(256):
-                filename = f"{idx:02x}.{self.ext}"
-                relpath = f"{folder}/{filename}"
-                if relpath not in used:
-                    path = os.path.join(folder_path, filename)
-                    if os.path.exists(path):
-                        uuid, timestamp = self.get_uuid_and_timestamp_from_file(path)
-                        self.add_entry(relpath, uuid, timestamp)
-                        with open(self.map_path, "a", encoding="utf-8") as f:
-                            f.write(f"{relpath}\t{uuid}\t{timestamp.isoformat()}\n")
-                    else:
-                        return relpath
+        for max in range(100, 1000, 100):
+            for i in range(max):
+                folder = f"{i:03}"
+                folder_path = os.path.join(self.data_dir, folder)
+                os.makedirs(folder_path, exist_ok=True)
+                for idx in range(max):
+                    filename = f"{idx:03}.{self.ext}"
+                    relpath = f"{folder}/{filename}"
+                    if relpath not in used:
+                        path = os.path.join(folder_path, filename)
+                        if os.path.exists(path):
+                            uuid, timestamp = self.get_uuid_and_timestamp_from_file(path)
+                            self.add_entry(relpath, uuid, timestamp)
+                            with open(self.map_path, "a", encoding="utf-8") as f:
+                                f.write(f"{relpath}\t{uuid}\t{timestamp.isoformat()}\n")
+                        else:
+                            return relpath
         raise Exception("保存上限に達しました")
 
     def generate_uuid(self):
