@@ -160,6 +160,7 @@ class Node:
 class NodeManager(UUIDTimestampManager):
     def __init__(self, base_dir="project"):
         self.base_dir = base_dir
+        self.cache = {}
         super().__init__(
             data_dir=os.path.join(base_dir, "nodes"),
             ext="xml",
@@ -181,6 +182,21 @@ class NodeManager(UUIDTimestampManager):
         except Exception:
             pass
         return str(uuid.UUID(int=0)), datetime.now().astimezone()
+
+    def get_node(self, node_id):
+        """
+        UUIDからNodeインスタンスを取得
+        """
+        if node_id in self.cache:
+            return self.cache[node_id]
+        if node_id in self.uuid_map:
+            # キャッシュにない場合はファイルから読み込む
+            relpath = self.uuid_map[node_id][0]
+            path = os.path.join(self.data_dir, relpath)
+            node = Node.load(path)
+            self.cache[node_id] = node
+            return node
+        raise FileNotFoundError(f"Node with ID {node_id} not found.")
 
     def create_node(self, prompt, response, g):
         relpath = self.get_next_relpath_and_folder()
@@ -216,6 +232,7 @@ class NodeManager(UUIDTimestampManager):
         node.save()
 
         # キャッシュ・TSV追記
+        self.cache[node_id] = node
         self.add_entry(relpath, node_id, timestamp)
         self.append_index(relpath, node_id, timestamp)
 
