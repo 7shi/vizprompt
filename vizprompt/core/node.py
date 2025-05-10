@@ -121,7 +121,7 @@ class NodeManager(UUIDTimestampManager):
     def __init__(self, base_dir="project"):
         self.base_dir = base_dir
         super().__init__(
-            data_dir= os.path.join(base_dir, "nodes"),
+            data_dir=os.path.join(base_dir, "nodes"),
             ext="xml",
         )
 
