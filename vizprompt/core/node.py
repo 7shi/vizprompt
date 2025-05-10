@@ -87,12 +87,12 @@ class Node:
         """
         NodeインスタンスをXML文字列に変換
         """
-        doc = json_to_xml(self.to_json())
+        doc = json_to_xml(self.to_dict())
         return doc.toprettyxml(encoding='utf-8', indent='').decode('utf-8')
 
-    def to_json(self) -> dict:
+    def to_dict(self) -> dict:
         """
-        NodeインスタンスをJSON互換の辞書で返す
+        NodeインスタンスのXML構造を辞書で返す
         """
         return {
             "node": {
