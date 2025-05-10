@@ -142,7 +142,7 @@ class NodeManager(UUIDTimestampManager):
             pass
         return str(uuid.UUID(int=0)), datetime.now().astimezone()
 
-    def save_node(self, prompt, response, g):
+    def create_node(self, prompt, response, g):
         relpath = self.get_next_relpath_and_folder()
         node_path = os.path.join(self.data_dir, relpath)
 

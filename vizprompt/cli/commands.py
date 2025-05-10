@@ -15,7 +15,7 @@ def handle_chat(manager, generator, prompt):
     response = generator.text.rstrip()
 
     # ノード保存処理
-    node = manager.save_node(prompt, response, generator)
+    node = manager.create_node(prompt, response, generator)
     print(f"チャット履歴をノードとして保存しました: {node.path} (ID: {node.id})")
 
 def run_cli():
