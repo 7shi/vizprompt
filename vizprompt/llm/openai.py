@@ -17,7 +17,7 @@ class Defaults:
     OpenAI = Settings(
         api_key=os.getenv("OPENAI_API_KEY"),
         url="https://api.openai.com/v1",
-        model="gpt-4.1",
+        model="gpt-4.1-mini",
     )
     OpenRouter = Settings(
         api_key=os.getenv("OPENROUTER_API_KEY"),
