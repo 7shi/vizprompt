@@ -116,6 +116,46 @@ class Node:
         xml = self.to_xml()
         with open(self.path, "w", encoding="utf-8") as f:
             f.write(xml)
+    
+    @classmethod
+    def load(cls, path):
+        """
+        XMLファイルからNodeインスタンスを読み込む
+        """
+        tree = ET.parse(path)
+        root = tree.getroot()
+        node_id = root.attrib["id"]
+        timestamp = datetime.fromisoformat(root.attrib["timestamp"])
+        contents = []
+        for content in root.findall(".//content"):
+            role = content.attrib["role"]
+            count = int(content.attrib["count"])
+            duration = float(content.attrib["duration"])
+            text = content.text or ""
+            contents.append({
+                "role": role,
+                "count": count,
+                "duration": duration,
+                "text": text,
+            })
+        model = root.findtext(".//model")
+        summary_node = root.find(".//summary")
+        summary = summary_node.text or ""
+        summary_updated = summary_node.attrib["updated"] == "true"
+        summary_last_built = datetime.fromisoformat(summary_node.attrib["last_built"])
+        tags = [tag.text for tag in root.findall(".//tag")]
+
+        return cls(
+            id=node_id,
+            timestamp=timestamp,
+            contents=contents,
+            model=model,
+            summary=summary,
+            summary_updated=summary_updated,
+            summary_last_built=summary_last_built,
+            tags=tags,
+            path=path,
+        )
 
 class NodeManager(UUIDTimestampManager):
     def __init__(self, base_dir="project"):
