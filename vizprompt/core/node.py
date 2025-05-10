@@ -4,6 +4,41 @@ from datetime import datetime
 import xml.etree.ElementTree as ET
 from xml.dom.minidom import Document
 
+def json_to_xml(json_obj):
+    """
+    JSONオブジェクトをXML形式に変換する関数
+    """
+    doc = Document()
+
+    def build_xml_element(parent, key, value):
+        if key is None:
+            if not isinstance(value, dict) or len(value) != 1:
+                raise ValueError(f"1要素の辞書でなければなりません: {value}")
+            build_xml_element(parent, *list(value.items())[0])
+        elif isinstance(value, dict):
+            element = doc.createElement(key)
+            parent.appendChild(element)
+            for k, v in value.items():
+                build_xml_element(element, k, v)
+        elif isinstance(value, list):
+            element = doc.createElement(key)
+            parent.appendChild(element)
+            for item in value:
+                build_xml_element(element, None, item)
+        else:
+            v = str(value)
+            if key == ":text":
+                if v:
+                    parent.appendChild(doc.createTextNode(v))
+            elif key == ":cdata":
+                if v:
+                    parent.appendChild(doc.createCDATASection(f"\n{v}\n"))
+            else:
+                parent.setAttribute(key, v)
+
+    build_xml_element(doc, None, json_obj)
+    return doc
+
 def _get_uuid_and_timestamp_from_xml(path):
     """
     XMLファイルのルート要素id属性とtimestamp属性を取得（なければゼロUUIDと現在のタイムスタンプを返す）
@@ -52,43 +87,44 @@ class Node:
         """
         NodeインスタンスをXML文字列に変換
         """
-        doc = Document()
-        node = doc.createElement('node')
-        node.setAttribute('id', self.id)
-        node.setAttribute('timestamp', self.timestamp.isoformat())
-        doc.appendChild(node)
-        contents = doc.createElement('contents')
-        for content in self.contents:
-            content_elem = doc.createElement('content')
-            content_elem.setAttribute('role', content['role'])
-            count = content.get('count', 0)
-            content_elem.setAttribute('count', str(count))
-            duration = content.get('duration', 0)
-            content_elem.setAttribute('duration', f'{duration:.2f}')
-            rate = count / duration if duration > 0 else 0
-            content_elem.setAttribute('rate', f'{rate:.2f}')
-            if text := content.get('text', None):
-                content_elem.appendChild(doc.createCDATASection(f'\n{text.rstrip()}\n'))
-            contents.appendChild(content_elem)
-        node.appendChild(contents)
-        metadata = doc.createElement('metadata')
-        model = doc.createElement('model')
-        model.appendChild(doc.createTextNode(self.model))
-        metadata.appendChild(model)
-        summary = doc.createElement('summary')
-        summary.setAttribute('updated', str(self.summary_updated).lower())
-        summary.setAttribute('last_built', self.summary_last_built.isoformat())
-        if self.summary:
-            summary.appendChild(doc.createCDATASection(f'\n{self.summary.rstrip()}\n'))
-        metadata.appendChild(summary)
-        tags = doc.createElement('tags')
-        for tag in self.tags:
-            tag_elem = doc.createElement('tag')
-            tag_elem.appendChild(doc.createTextNode(tag))
-            tags.appendChild(tag_elem)
-        metadata.appendChild(tags)
-        node.appendChild(metadata)
+        doc = json_to_xml(self.to_json())
         return doc.toprettyxml(encoding='utf-8', indent='').decode('utf-8')
+
+    def to_json(self) -> dict:
+        """
+        NodeインスタンスをJSON互換の辞書で返す
+        """
+        return {
+            "node": {
+                "id": self.id,
+                "timestamp": self.timestamp.isoformat(),
+                "contents": [
+                    {
+                        "content": {
+                            "role": c["role"],
+                            "count": c.get("count", 0),
+                            "duration": float(f'{c.get("duration", 0):.2f}'),
+                            "rate": float(f'{(c.get("count", 0) / c.get("duration", 0)):.2f}' if c.get("duration", 0) > 0 else 0),
+                            ":cdata": c.get("text", ""),
+                        }
+                    }
+                    for c in self.contents
+                ],
+                "metadata": {
+                    "model": {
+                        ":text": self.model,
+                    },
+                    "summary": {
+                        "updated": str(self.summary_updated).lower(),
+                        "last_built": self.summary_last_built.isoformat(),
+                        ":cdata": self.summary if self.summary else "",
+                    },
+                    "tags": [
+                        {"tag": tag} for tag in self.tags
+                    ],
+                },
+            }
+        }
 
     def save(self):
         """
