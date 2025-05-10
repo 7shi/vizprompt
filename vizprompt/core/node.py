@@ -1,8 +1,8 @@
 import os, uuid
 from datetime import datetime
-
 import xml.etree.ElementTree as ET
 from xml.dom.minidom import Document
+from vizprompt.core.base import UUIDTimestampManager
 
 def json_to_xml(json_obj):
     """
@@ -38,23 +38,6 @@ def json_to_xml(json_obj):
 
     build_xml_element(doc, None, json_obj)
     return doc
-
-def _get_uuid_and_timestamp_from_xml(path):
-    """
-    XMLファイルのルート要素id属性とtimestamp属性を取得（なければゼロUUIDと現在のタイムスタンプを返す）
-    """
-    try:
-        for _, elem in ET.iterparse(path, events=("start",)):
-            if elem.tag == "node":
-                if uuid_str := elem.attrib.get("id", None):
-                    if timestamp := elem.attrib.get("timestamp", None):
-                        return uuid_str, datetime.fromisoformat(timestamp)
-                break
-            else:
-                break
-    except Exception:
-        pass
-    return str(uuid.UUID(int=0)), datetime.now().astimezone()
 
 class Node:
     """
@@ -134,123 +117,41 @@ class Node:
         with open(self.path, "w", encoding="utf-8") as f:
             f.write(xml)
 
-class NodeManager:
+class NodeManager(UUIDTimestampManager):
     def __init__(self, base_dir="project"):
         self.base_dir = base_dir
         self.nodes_dir = os.path.join(base_dir, "nodes")
         self.map_path = os.path.join(base_dir, "metadata", "node_map.tsv")
-        os.makedirs(self.nodes_dir, exist_ok=True)
-        os.makedirs(os.path.dirname(self.map_path), exist_ok=True)
-        self.tsv_entries = {}  # relpath -> (uuid, timestamp)
-        self.uuid_map = {}     # uuid -> [relpath]
-        self._check_and_update_node_map()
+        super().__init__(
+            base_dir=self.base_dir,
+            map_path=self.map_path,
+            data_dir=self.nodes_dir,
+            ext="xml",
+        )
 
-    def add_node(self, relpath, uuid, timestamp):
+    def get_uuid_and_timestamp_from_file(self, path):
         """
-        ノードを追加するメソッド
-        relpath: ノードの相対パス
-        uuid: ノードのUUID
-        timestamp: ノードのタイムスタンプ
+        XMLファイルのルート要素id属性とtimestamp属性を取得（なければゼロUUIDと現在のタイムスタンプを返す）
         """
-        self.tsv_entries[relpath] = (uuid, timestamp)
-        lst = self.uuid_map.setdefault(uuid, [])
-        # タイムスタンプ降順（新しい順）で挿入、同一なら先頭
-        for i, rp in enumerate(lst):
-            _, ts = self.tsv_entries[rp]
-            if timestamp >= ts:
-                lst.insert(i, relpath)
-                return
-        # 末尾に追加
-        lst.append(relpath)
-
-    # Nodeファイルとnode_map.tsvの整合性チェック・自動修正
-    def _check_and_update_node_map(self):
-        # 1. node_map.tsvの読み込み＋キャッシュ初期化
-        self.tsv_entries = {}
-        self.uuid_map = {}
-        if os.path.exists(self.map_path):
-            with open(self.map_path, encoding="utf-8") as f:
-                first = True
-                for line in f:
-                    if first:
-                        # ヘッダ行ならスキップ
-                        if line.strip().lower().startswith("relpath"):
-                            first = False
-                            continue
-                        first = False
-                    parts = line.strip().split("\t")
-                    if len(parts) == 3:
-                        self.add_node(*parts)
-
-        # 2. nodes_dir配下の全XMLファイルを列挙しつつ不足分を即時追加
-        changed = False
-        for folder in os.listdir(self.nodes_dir):
-            folder_path = os.path.join(self.nodes_dir, folder)
-            if not os.path.isdir(folder_path):
-                continue
-            for fname in os.listdir(folder_path):
-                if fname.endswith(".xml") and len(fname) == 6:
-                    relpath = f"{folder}/{fname}"
-                    # 不足分を追加
-                    if relpath not in self.tsv_entries:
-                        xml_path = os.path.join(self.nodes_dir, folder, fname)
-                        uuid, timestamp = _get_uuid_and_timestamp_from_xml(xml_path)
-                        self.add_node(relpath, uuid, timestamp)
-                        changed = True
-
-        # 3. 過剰分（uuid_mapのどのリストにも含まれないrelpath）を削除
-        all_uuid_relpaths = set()
-        for relpaths in self.uuid_map.values():
-            all_uuid_relpaths.update(relpaths)
-        for relpath in list(self.tsv_entries.keys()):
-            if relpath not in all_uuid_relpaths:
-                self.tsv_entries.pop(relpath)
-                changed = True
-
-        # 4. フラグが立っていればTSV書き直し
-        if changed:
-            with open(self.map_path, "w", encoding="utf-8") as f:
-                f.write("relpath\tuuid\ttimestamp\n")
-                for relpath, (uuid, timestamp) in self.tsv_entries.items():
-                    f.write(f"{relpath}\t{uuid}\t{timestamp}\n")
-
-    def _get_next_relpath_and_folder(self):
-        # TSVキャッシュベースで空きを探す
-        used = set(self.tsv_entries.keys())
-        for i in range(256):
-            folder = f"{i:02x}"
-            folder_path = os.path.join(self.nodes_dir, folder)
-            os.makedirs(folder_path, exist_ok=True)
-            for idx in range(256):
-                filename = f"{idx:02x}.xml"
-                relpath = f"{folder}/{filename}"
-                if relpath not in used:
-                    # 空きが見つかった場合、既存ファイルがあればUUIDとtimestampを取得してキャッシュ・TSVに追記
-                    xml_path = os.path.join(folder_path, filename)
-                    if os.path.exists(xml_path):
-                        uuid, timestamp = _get_uuid_and_timestamp_from_xml(xml_path)
-                        self.add_node(relpath, uuid, timestamp)
-                        # TSV追記
-                        with open(self.map_path, "a", encoding="utf-8") as f:
-                            f.write(f"{relpath}\t{uuid}\t{timestamp}\n")
-                    else:
-                        return relpath
-        raise Exception("ノード保存上限に達しました")
-
-    def _generate_node_id(self):
-        # UUIDベースのノードID
-        node_id = str(uuid.uuid4())
-        # 既存のUUIDと重複しないようにする
-        while node_id in self.uuid_map:
-            node_id = str(uuid.uuid4())
-        return node_id
+        try:
+            for _, elem in ET.iterparse(path, events=("start",)):
+                if elem.tag == "node":
+                    if uuid_str := elem.attrib.get("id", None):
+                        if timestamp := elem.attrib.get("timestamp", None):
+                            return uuid_str, datetime.fromisoformat(timestamp)
+                    break
+                else:
+                    break
+        except Exception:
+            pass
+        return str(uuid.UUID(int=0)), datetime.now().astimezone()
 
     def save_node(self, prompt, response, g):
-        relpath = self._get_next_relpath_and_folder()
+        relpath = self.get_next_relpath_and_folder()
         node_path = os.path.join(self.base_dir, "nodes", relpath)
 
         # 新規作成
-        node_id = self._generate_node_id()
+        node_id = self.generate_uuid()
         timestamp = datetime.now().astimezone()
         node = Node(
             id = node_id,
@@ -279,11 +180,7 @@ class NodeManager:
         node.save()
 
         # キャッシュ・TSV追記
-        self.add_node(relpath, node_id, timestamp)
-        write_header = not os.path.exists(self.map_path)
-        with open(self.map_path, "a", encoding="utf-8") as f:
-            if write_header:
-                f.write("relpath\tuuid\ttimestamp\n")
-            f.write(f"{relpath}\t{node_id}\t{timestamp.isoformat()}\n")
+        self.add_entry(relpath, node_id, timestamp)
+        self.append_index(relpath, node_id, timestamp)
 
         return node
