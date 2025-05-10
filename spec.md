@@ -35,6 +35,7 @@ VizPromptは、チャット履歴をフローとして管理するノードベ�
 ```
 project/
 ├── nodes/                           # ノードディレクトリ
+│   ├── index.tsv                    # ノードファイルパス・UUID・タイムスタンプのマッピング (TSV形式)
 │   ├── 00/                          # 最初のノード格納ディレクトリ (最大256ファイル)
 │   │   ├── 00.xml                   # 連番でファイル名を管理
 │   │   ├── 01.xml
@@ -43,6 +44,7 @@ project/
 │   │   └── ...
 │   └── ...                          # 必要に応じて増加
 ├── flows/                           # フローディレクトリ
+│   ├── index.tsv                    # フローIDとファイルパスのマッピング (TSV形式)
 │   ├── 00/                          # 最初のフロー格納ディレクトリ (最大256ファイル)
 │   │   ├── 00.yaml                  # 連番でファイル名を管理 (YAML形式)
 │   │   ├── 01.yaml
@@ -51,9 +53,7 @@ project/
 │   │   └── ...
 ├── metadata/                        # メタデータファイル
 │   ├── tags.yaml                    # タグ一覧 (YAML形式)
-│   ├── index.yaml                   # ノード検索用インデックス (YAML形式)
-│   ├── node_map.tsv                 # ノードファイルパス・UUID・タイムスタンプのマッピング (TSV形式)
-│   └── flow_map.tsv                 # フローIDとファイルパスのマッピング (TSV形式)
+│   └── index.yaml                   # ノード検索用インデックス (YAML形式)
 └── config.yaml                      # 設定ファイル (YAML形式)
 ```
 
@@ -184,12 +184,12 @@ connections:
 ### 5.3 フローマッピング (flow_map.tsv)
 
 ```
-flow_id	folder	filename
-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx	00	00.yaml
-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx	00	01.yaml
-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx	00	02.yaml
+relpath	uuid	timestamp
+00/00.yaml	xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx	2025-05-09T06:48:06.533720+09:00
+00/01.yaml	xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx	2025-05-09T06:49:10.123456+09:00
+00/02.yaml	xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx	2025-05-09T06:50:22.654321+09:00
 ...
-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx	01	00.yaml
+01/00.yaml	xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx	2025-05-09T07:01:00.000000+09:00
 ...
 ```
 
@@ -246,6 +246,7 @@ providers:
 ```
 vizprompt/
 ├── core/
+│   ├── base.py          # 基本インターフェース
 │   ├── node.py          # ノード管理
 │   ├── flow.py          # フロー管理
 │   ├── metadata.py      # メタデータ管理

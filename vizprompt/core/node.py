@@ -120,12 +120,8 @@ class Node:
 class NodeManager(UUIDTimestampManager):
     def __init__(self, base_dir="project"):
         self.base_dir = base_dir
-        self.nodes_dir = os.path.join(base_dir, "nodes")
-        self.map_path = os.path.join(base_dir, "metadata", "node_map.tsv")
         super().__init__(
-            base_dir=self.base_dir,
-            map_path=self.map_path,
-            data_dir=self.nodes_dir,
+            data_dir= os.path.join(base_dir, "nodes"),
             ext="xml",
         )
 
@@ -148,7 +144,7 @@ class NodeManager(UUIDTimestampManager):
 
     def save_node(self, prompt, response, g):
         relpath = self.get_next_relpath_and_folder()
-        node_path = os.path.join(self.base_dir, "nodes", relpath)
+        node_path = os.path.join(self.data_dir, relpath)
 
         # 新規作成
         node_id = self.generate_uuid()

@@ -6,13 +6,11 @@ class UUIDTimestampManager:
     UUIDとタイムスタンプでファイルを管理するベースクラス
     """
 
-    def __init__(self, base_dir, map_path, data_dir, ext):
-        self.base_dir = base_dir
-        self.map_path = map_path
+    def __init__(self, data_dir, ext):
         self.data_dir = data_dir
+        self.map_path = os.path.join(data_dir, "index.tsv")
         self.ext = ext
         os.makedirs(self.data_dir, exist_ok=True)
-        os.makedirs(os.path.dirname(self.map_path), exist_ok=True)
         self.tsv_entries = {}  # relpath -> (uuid, timestamp)
         self.uuid_map = {}     # uuid -> [relpath]
         self.check_and_update_map()
