@@ -116,7 +116,7 @@ class Node:
         xml = self.to_xml()
         with open(self.path, "w", encoding="utf-8") as f:
             f.write(xml)
-    
+
     @classmethod
     def load(cls, path):
         """
