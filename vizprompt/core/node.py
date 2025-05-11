@@ -187,8 +187,9 @@ class NodeManager(UUIDTimestampManager):
         """
         UUIDからNodeインスタンスを取得
         """
-        if node_id in self.cache:
-            return self.cache[node_id]
+        if node := self.cache.get(node_id):
+            # キャッシュにある場合はキャッシュから取得
+            return node
         if node_id in self.uuid_map:
             # キャッシュにない場合はファイルから読み込む
             relpath = self.uuid_map[node_id][0]
