@@ -238,3 +238,16 @@ class NodeManager(BaseManager):
         self.append_index(relpath, node_id, timestamp)
 
         return node
+
+    def get_contents(self, node_ids):
+        """
+        複数のNodeインスタンスの内容を取得
+        """
+        contents = []
+        for node_id in node_ids:
+            if node := self.get_node(node_id):
+                for content in node.contents:
+                    contents.append((content["role"], content["text"]))
+            else:
+                raise FileNotFoundError(f"Node with ID {node_id} not found.")
+        return contents
