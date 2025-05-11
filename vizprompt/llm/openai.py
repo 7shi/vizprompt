@@ -111,9 +111,7 @@ class OpenAIGenerator(BaseGenerator):
         Yields:
             応答のチャンク文字列。
         """
-        messages = [
-            {"role": "user", "content": prompt},
-        ]
+        messages = self.convert_history([("user", prompt)])
         return self.chat(messages)
 
 if __name__ == '__main__':

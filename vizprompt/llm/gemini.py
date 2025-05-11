@@ -87,6 +87,18 @@ class GeminiGenerator(BaseGenerator):
                     raise
         raise RuntimeError("Max retries exceeded.")
 
+    def convert_history(self, history):
+        """
+        (role, content) のリストを Gemini 用の履歴形式に変換
+        """
+        return [
+            genai.types.Content(
+                role=role,
+                parts=[genai.types.Part.from_text(text=content)]
+            )
+            for role, content in history
+        ]
+
     def generate(self, prompt: str):
         """
         Geminiにプロンプトを送信し、ストリーム応答を取得します。
@@ -100,14 +112,7 @@ class GeminiGenerator(BaseGenerator):
         config = genai.types.GenerateContentConfig(
             response_mime_type="text/plain",
         )
-        contents = [
-            genai.types.Content(
-                role="user",
-                parts=[
-                    genai.types.Part.from_text(text=prompt),
-                ],
-            ),
-        ]
+        contents = self.convert_history([("user", prompt)])
         return self.generate_content_retry(config, contents)
 
 if __name__ == '__main__':
