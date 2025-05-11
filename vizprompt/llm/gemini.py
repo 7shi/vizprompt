@@ -99,12 +99,13 @@ class GeminiGenerator(BaseGenerator):
             for role, content in history
         ]
 
-    def generate(self, prompt: str):
+    def generate(self, prompt: str, history=None):
         """
         Geminiにプロンプトを送信し、ストリーム応答を取得します。
 
         Args:
             prompt: Geminiに送信するプロンプト文字列。
+            history: Geminiに送信する履歴のリスト。
 
         Yields:
             応答のチャンク文字列。
@@ -112,7 +113,12 @@ class GeminiGenerator(BaseGenerator):
         config = genai.types.GenerateContentConfig(
             response_mime_type="text/plain",
         )
-        contents = self.convert_history([("user", prompt)])
+        contents1 = [("user", prompt)]
+        if history is None:
+            contents = self.convert_history(contents1)
+        else:
+            # 履歴がある場合は、履歴を追加
+            contents = self.convert_history(history + contents1)
         return self.generate_content_retry(config, contents)
 
 if __name__ == '__main__':

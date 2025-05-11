@@ -101,18 +101,24 @@ class OpenAIGenerator(BaseGenerator):
         self.prompt_rate = self.prompt_count / self.prompt_duration if self.prompt_duration > 0 else 0
         self.eval_rate = self.eval_count / self.eval_duration if self.eval_duration > 0 else 0
 
-    def generate(self, prompt: str):
+    def generate(self, prompt: str, history=None):
         """
         OpenAIにプロンプトを送信し、ストリーム応答を取得します。
 
         Args:
             prompt: OpenAIに送信するプロンプト文字列。
+            history: OpenAIに送信する履歴のリスト。
 
         Yields:
             応答のチャンク文字列。
         """
-        messages = self.convert_history([("user", prompt)])
-        return self.chat(messages)
+        contents1 = [("user", prompt)]
+        if history is None:
+            contents = self.convert_history(contents1)
+        else:
+            # 履歴がある場合は、履歴を追加
+            contents = self.convert_history(history + contents1)
+        return self.chat(contents)
 
 if __name__ == '__main__':
     user_prompt = "こんにちは、自己紹介してください。"
