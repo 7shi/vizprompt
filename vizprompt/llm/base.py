@@ -18,3 +18,7 @@ class BaseGenerator:
         print(f"eval_count     : {self.eval_count}")
         print(f"eval_duration  : {self.eval_duration:.2f} s")
         print(f"eval_rate      : {self.eval_rate:.2f} tokens/s")
+
+    def show_statistics_short(self):
+        print(f"[in: {self.prompt_count} / {self.prompt_duration:.2f} s = {self.prompt_rate:.2f} tps]", end="")
+        print(f"[out: {self.eval_count} / {self.eval_duration:.2f} s = {self.eval_rate:.2f} tps]")
