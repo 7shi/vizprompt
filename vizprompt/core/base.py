@@ -1,7 +1,7 @@
 import os, re, uuid
 from datetime import datetime
 
-class UUIDTimestampManager:
+class BaseManager:
     """
     UUIDとタイムスタンプでファイルを管理するベースクラス
     """

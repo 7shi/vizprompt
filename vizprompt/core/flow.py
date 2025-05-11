@@ -1,7 +1,7 @@
 import os, uuid
 from datetime import datetime
 from ruamel.yaml import YAML
-from vizprompt.core.base import UUIDTimestampManager
+from vizprompt.core.base import BaseManager
 
 yaml = YAML()
 yaml.default_flow_style = False
@@ -125,7 +125,7 @@ class Flow:
         f(flow_id)
         return flows
 
-class FlowManager(UUIDTimestampManager):
+class FlowManager(BaseManager):
     def __init__(self, base_dir="project"):
         self.base_dir = base_dir
         self.cache = {}
