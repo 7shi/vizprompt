@@ -168,8 +168,9 @@ def cmd_flow(args):
 
 def cmd_flow_list():
     format = len(str(len(flow_manager.tsv_entries)))
-    for idx, (relpath, (id, timestamp)) in enumerate(flow_manager.tsv_entries.items(), 1):
-        print(f"{idx:{format}}.", timestamp, id, relpath)
+    for idx, (_, (id, _)) in enumerate(flow_manager.tsv_entries.items(), 1):
+        f = flow_manager.get_flow(id)
+        print(f"{idx:{format}}.", f.updated, f.id, f.relpath, f.name, f"({len(f.nodes)})")
 
 def get_flow(id_or_number):
     # 数字なら番号→UUID変換
