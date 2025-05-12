@@ -187,7 +187,7 @@ def get_flow(id_or_number):
 def cmd_flow_show(id_or_number):
     try:
         flow = get_flow(id_or_number)
-    except ValueError as e:
+    except Exception as e:
         print(e, file=sys.stderr)
         return
     print("Flow:", flow.updated, flow.id, flow.relpath)
