@@ -59,6 +59,8 @@ commands = {
     "/clear": "セッションをクリアします",
     "/flow list": "フロー一覧を表示します",
     "/flow show <id>": "フローの詳細またはログを表示します",
+    "/flow select <id>": "フローを選択します",
+    "/prev": "前のノードを表示します",
     "/?": "このヘルプを表示します"
 }
 commands_max = max(len(cmd) for cmd in commands)
@@ -111,6 +113,21 @@ def repl(generator):
                     case "/flow show":
                         print(args)
                         cmd_flow_show(args[0])
+                        continue
+                    case "/flow select":
+                        try:
+                            flow = get_flow(args[0])
+                            prev_node_id = flow.nodes[-1] if flow.nodes else None
+                            print("フローを選択しました:", flow.id, flow.relpath)
+                        except Exception as e:
+                            print(e, file=sys.stderr)
+                        continue
+                    case "/prev":
+                        if prev_node_id is None:
+                            print("前のノードはありません。", file=sys.stderr)
+                        else:
+                            node = node_manager.get_node(prev_node_id)
+                            show_node(node)
                         continue
                     case "/?":
                         show_commands()
@@ -185,6 +202,19 @@ def get_flow(id_or_number):
         id = id_or_number
     return flow_manager.get_flow(id)
 
+def show_node(node):
+    node_info = f"{node.timestamp} {node.id} {node.relpath}"
+    print(node_info)
+    print("-" * len(node_info))
+    for j, content in enumerate(node.contents):
+        if j:
+            print()
+        name = "user" if content["role"] == "user" else node.model
+        text = content["text"].rstrip()
+        print(f"{name}: {text}")
+        c, d, r = content["count"], content["duration"], content["rate"]
+        print(f"[{c} / {d:.2f} s = {r:.2f} tps]")
+
 def cmd_flow_show(id_or_number):
     try:
         flow = get_flow(id_or_number)
@@ -198,18 +228,8 @@ def cmd_flow_show(id_or_number):
         print(f"======== 履歴 {i}/{len(histories)} ========")
         for node_id in history:
             node = node_manager.get_node(node_id)
-            node_info = f"{node.timestamp} {node.id} {node.relpath}"
             print()
-            print(node_info)
-            print("-" * len(node_info))
-            for j, content in enumerate(node.contents):
-                if j:
-                    print()
-                name = "user" if content["role"] == "user" else node.model
-                text = content["text"].rstrip()
-                print(f"{name}: {text}")
-                c, d, r = content["count"], content["duration"], content["rate"]
-                print(f"[{c} / {d:.2f} s = {r:.2f} tps]")
+            show_node(node)
 
 def main():
     args = parser.parse_args()
