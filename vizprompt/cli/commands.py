@@ -54,14 +54,71 @@ def chat(manager, generator, prompt, history=None):
     print(f"チャット履歴をノードとして保存しました: {node.relpath} (ID: {node.id})")
     return node.id
 
+commands = {
+    "/q": "セッションを終了します",
+    "/clear": "セッションをクリアします",
+    "/flow list": "フロー一覧を表示します",
+    "/flow show <id>": "フローの詳細またはログを表示します",
+    "/?": "このヘルプを表示します"
+}
+commands_max = max(len(cmd) for cmd in commands)
+
+def show_commands():
+    print("コマンド一覧:")
+    for cmd, desc in commands.items():
+        print(f"  {cmd:{commands_max}}  {desc}")
+
+def parse_command(line):
+    if not line.startswith("/"):
+        return None, None
+    for command in commands:
+        # <xx>の部分を取り除いたのがコマンド本体
+        cmd = re.sub(r"<[^>]+>", "", command).rstrip()
+        if line.startswith(cmd):
+            # <xx>の部分を正規表現でマッチさせる
+            # 例: /flow show <id> → /flow show ([^ ]+)
+            pattern = re.sub(r"<[^>]+>", r"([^ ]+)", re.escape(command))
+            if m := re.fullmatch(pattern, line):
+                return cmd, list(m.groups())
+            # 引数が間違っている場合
+            return command, None
+    return None, ["不明なコマンドです。"]
+
 def repl(generator):
     flow = None
     prev_node_id = None
     while True:
         try:
             prompt = input("User: ")
-            if not prompt:
-                break
+            if prompt is None:
+                return
+            cmd, args = parse_command(prompt)
+            if cmd:
+                if args is None:
+                    print("引数が違います:", cmd, file=sys.stderr)
+                    show_commands()
+                    continue
+                match cmd:
+                    case "/q":
+                        return
+                    case "/clear":
+                        print("セッションをクリアしました。")
+                        flow = None
+                        continue
+                    case "/flow list":
+                        cmd_flow_list()
+                        continue
+                    case "/flow show":
+                        print(args)
+                        cmd_flow_show(args[0])
+                        continue
+                    case "/?":
+                        show_commands()
+                        continue
+            elif args:
+                print(args[0])
+                show_commands()
+                continue
             if not flow:
                 flow = flow_manager.create_flow(name="Chat Session")
             if prev_node_id is None:
@@ -77,7 +134,9 @@ def repl(generator):
             prev_node_id = curr_node_id
             print()
         except EOFError:
-            break
+            return
+        except Exception as e:
+            print(f"エラーが発生しました: {e}", file=sys.stderr)
 
 def cmd_chat(args):
     generator = None
@@ -104,7 +163,7 @@ def cmd_flow(args):
     if args.flow_command == "list":
         cmd_flow_list()
     elif args.flow_command == "show":
-        cmd_flow_show(args)
+        cmd_flow_show(args.id_or_number)
     else:
         flow_command_parser.print_help()
 
@@ -113,11 +172,7 @@ def cmd_flow_list():
     for idx, (relpath, (id, timestamp)) in enumerate(flow_manager.tsv_entries.items(), 1):
         print(f"{idx:{format}}.", timestamp, id, relpath)
 
-def cmd_flow_show(args):
-    id_or_number = getattr(args, "id_or_number", None)
-    if id_or_number is None:
-        print("フロー番号またはUUIDを指定してください", file=sys.stderr)
-        return
+def get_flow(id_or_number):
     # 数字なら番号→UUID変換
     if re.fullmatch(r"\d+", id_or_number):
         idx = int(id_or_number)
@@ -125,14 +180,16 @@ def cmd_flow_show(args):
         if 1 <= idx <= len(entries):
             id = entries[idx - 1][1][0]
         else:
-            print("指定された番号のフローは存在しません", file=sys.stderr)
-            return
+            raise ValueError("指定された番号のフローは存在しません")
     else:
         id = id_or_number
+    return flow_manager.get_flow(id)
+
+def cmd_flow_show(id_or_number):
     try:
-        flow = flow_manager.get_flow(id)
-    except Exception as e:
-        print(f"フローの取得に失敗しました: {e}", file=sys.stderr)
+        flow = get_flow(id_or_number)
+    except ValueError as e:
+        print(e, file=sys.stderr)
         return
     print("Flow:", flow.updated, flow.id, flow.relpath)
     histories = flow.get_histories()
