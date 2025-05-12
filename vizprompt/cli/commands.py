@@ -54,34 +54,16 @@ def chat(manager, generator, prompt, history=None):
     print(f"チャット履歴をノードとして保存しました: {node.relpath} (ID: {node.id})")
     return node.id
 
-def cmd_chat(args):
-    generator = None
-    if args.service == "gemini":
-        from ..llm import gemini
-        generator = gemini.GeminiGenerator()
-    elif args.service == "ollama":
-        from ..llm import ollama
-        generator = ollama.OllamaGenerator()
-    elif args.service == "openai":
-        from ..llm import openai
-        generator = openai.OpenAIGenerator()
-    if generator is None:
-        chat_command_parser.print_help()
-        return
-
-    if args.prompt:
-        print("User:", args.prompt)
-        chat(node_manager, generator, args.prompt)
-        return
-
-    # REPLモード
-    flow = flow_manager.create_flow(name="Chat Session")
+def repl(generator):
+    flow = None
     prev_node_id = None
     while True:
         try:
             prompt = input("User: ")
             if not prompt:
                 break
+            if not flow:
+                flow = flow_manager.create_flow(name="Chat Session")
             if prev_node_id is None:
                 history_ids = []
             else:
@@ -97,55 +79,82 @@ def cmd_chat(args):
         except EOFError:
             break
 
+def cmd_chat(args):
+    generator = None
+    if args.service == "gemini":
+        from ..llm import gemini
+        generator = gemini.GeminiGenerator()
+    elif args.service == "ollama":
+        from ..llm import ollama
+        generator = ollama.OllamaGenerator()
+    elif args.service == "openai":
+        from ..llm import openai
+        generator = openai.OpenAIGenerator()
+
+    if generator:
+        if args.prompt:
+            print("User:", args.prompt)
+            chat(node_manager, generator, args.prompt)
+        else:
+            repl(generator)
+    else:
+        chat_command_parser.print_help()
+
 def cmd_flow(args):
     if args.flow_command == "list":
-        format = len(str(len(flow_manager.tsv_entries)))
-        for idx, (relpath, (id, timestamp)) in enumerate(flow_manager.tsv_entries.items(), 1):
-            print(f"{idx:{format}}.", timestamp, id, relpath)
+        cmd_flow_list()
     elif args.flow_command == "show":
-        id_or_number = getattr(args, "id_or_number", None)
-        if id_or_number is None:
-            print("フロー番号またはUUIDを指定してください", file=sys.stderr)
-            return
-        # 数字なら番号→UUID変換
-        if re.fullmatch(r"\d+", id_or_number):
-            idx = int(id_or_number)
-            entries = list(flow_manager.tsv_entries.items())
-            if 1 <= idx <= len(entries):
-                id = entries[idx - 1][1][0]
-            else:
-                print("指定された番号のフローは存在しません", file=sys.stderr)
-                return
-        else:
-            id = id_or_number
-        try:
-            flow = flow_manager.get_flow(id)
-        except Exception as e:
-            print(f"フローの取得に失敗しました: {e}", file=sys.stderr)
-            return
-        print("Flow:", flow.updated, flow.id, flow.relpath)
-        histories = flow.get_histories()
-        for i, history in enumerate(histories, 1):
-            print()
-            print(f"======== 履歴 {i}/{len(histories)} ========")
-            for node_id in history:
-                node = node_manager.get_node(node_id)
-                node_info = f"{node.timestamp} {node.id} {node.relpath}"
-                print()
-                print(node_info)
-                print("-" * len(node_info))
-                for j, content in enumerate(node.contents):
-                    if j:
-                        print()
-                    name = "user" if content["role"] == "user" else node.model
-                    text = content["text"].rstrip()
-                    print(f"{name}: {text}")
-                    c, d, r = content["count"], content["duration"], content["rate"]
-                    print(f"[{c} / {d:.2f} s = {r:.2f} tps]")
+        cmd_flow_show(args)
     else:
         flow_command_parser.print_help()
 
-def run_cli():
+def cmd_flow_list():
+    format = len(str(len(flow_manager.tsv_entries)))
+    for idx, (relpath, (id, timestamp)) in enumerate(flow_manager.tsv_entries.items(), 1):
+        print(f"{idx:{format}}.", timestamp, id, relpath)
+
+def cmd_flow_show(args):
+    id_or_number = getattr(args, "id_or_number", None)
+    if id_or_number is None:
+        print("フロー番号またはUUIDを指定してください", file=sys.stderr)
+        return
+    # 数字なら番号→UUID変換
+    if re.fullmatch(r"\d+", id_or_number):
+        idx = int(id_or_number)
+        entries = list(flow_manager.tsv_entries.items())
+        if 1 <= idx <= len(entries):
+            id = entries[idx - 1][1][0]
+        else:
+            print("指定された番号のフローは存在しません", file=sys.stderr)
+            return
+    else:
+        id = id_or_number
+    try:
+        flow = flow_manager.get_flow(id)
+    except Exception as e:
+        print(f"フローの取得に失敗しました: {e}", file=sys.stderr)
+        return
+    print("Flow:", flow.updated, flow.id, flow.relpath)
+    histories = flow.get_histories()
+    for i, history in enumerate(histories, 1):
+        print()
+        print(f"======== 履歴 {i}/{len(histories)} ========")
+        for node_id in history:
+            node = node_manager.get_node(node_id)
+            node_info = f"{node.timestamp} {node.id} {node.relpath}"
+            print()
+            print(node_info)
+            print("-" * len(node_info))
+            for j, content in enumerate(node.contents):
+                if j:
+                    print()
+                name = "user" if content["role"] == "user" else node.model
+                text = content["text"].rstrip()
+                print(f"{name}: {text}")
+                c, d, r = content["count"], content["duration"], content["rate"]
+                print(f"[{c} / {d:.2f} s = {r:.2f} tps]")
+
+def main():
     args = parser.parse_args()
     if args.command == "chat":
         cmd_chat(args)
@@ -153,9 +162,6 @@ def run_cli():
         cmd_flow(args)
     else:
         parser.print_help()
-
-def main():
-    run_cli()
 
 if __name__ == "__main__":
     main()
