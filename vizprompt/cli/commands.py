@@ -20,10 +20,26 @@ ollama_parser.add_argument("prompt", type=str, nargs="?", help="Ollamaへのプ�
 openai_parser = chat_subparsers.add_parser("openai", help="OpenAIとチャットします")
 openai_parser.add_argument("prompt", type=str, nargs="?", help="OpenAIへのプロンプト")
 
+# 'flow' サブコマンド
+flow_command_parser = subparsers.add_parser("flow", help="フロー管理コマンド")
+flow_subparsers = flow_command_parser.add_subparsers(dest="flow_command", help='フロー操作', required=True)
+
+# 'flow list' サブコマンド
+flow_list_parser = flow_subparsers.add_parser("list", help="フロー一覧を表示します")
+
+# 'flow show' サブコマンド
+flow_show_parser = flow_subparsers.add_parser("show", help="フローの詳細またはログを表示します")
+flow_show_parser.add_argument("id_or_number", type=str, help="フロー番号またはUUID")
+
+import sys, re
 from ..core.node import NodeManager
 from ..core.flow import FlowManager
 
-def handle_chat(manager, generator, prompt, history=None):
+base_dir = "project"
+node_manager = NodeManager(base_dir=base_dir)
+flow_manager = FlowManager(base_dir=base_dir)
+
+def chat(manager, generator, prompt, history=None):
     prompt = prompt.rstrip()
     print(f"{generator.model}: ", end="", flush=True)
     for chunk in generator.generate(prompt, history=history):
@@ -35,32 +51,30 @@ def handle_chat(manager, generator, prompt, history=None):
 
     # ノード保存処理
     node = manager.create_node(prompt, response, generator)
-    print(f"チャット履歴をノードとして保存しました: {node.path} (ID: {node.id})")
+    print(f"チャット履歴をノードとして保存しました: {node.relpath} (ID: {node.id})")
     return node.id
 
-def chat_command(service, prompt):
+def cmd_chat(args):
     generator = None
-    if service == "gemini":
+    if args.service == "gemini":
         from ..llm import gemini
         generator = gemini.GeminiGenerator()
-    elif service == "ollama":
+    elif args.service == "ollama":
         from ..llm import ollama
         generator = ollama.OllamaGenerator()
-    elif service == "openai":
+    elif args.service == "openai":
         from ..llm import openai
         generator = openai.OpenAIGenerator()
     if generator is None:
         chat_command_parser.print_help()
         return
 
-    node_manager = NodeManager(base_dir="project")
-    if prompt:
-        print("User:", prompt)
-        handle_chat(node_manager, generator, prompt)
+    if args.prompt:
+        print("User:", args.prompt)
+        chat(node_manager, generator, args.prompt)
         return
 
     # REPLモード
-    flow_manager = FlowManager(base_dir="project")
     flow = flow_manager.create_flow(name="Chat Session")
     prev_node_id = None
     while True:
@@ -74,18 +88,69 @@ def chat_command(service, prompt):
                 # 前のノードの履歴を取得
                 history_ids = flow.get_history(prev_node_id) or [prev_node_id]
             history = node_manager.get_contents(history_ids)
-            curr_node_id = handle_chat(node_manager, generator, prompt, history)
+            curr_node_id = chat(node_manager, generator, prompt, history)
             if prev_node_id is not None:
                 flow.connect(prev_node_id, curr_node_id)
                 flow.save()
             prev_node_id = curr_node_id
+            print()
         except EOFError:
             break
+
+def cmd_flow(args):
+    if args.flow_command == "list":
+        format = len(str(len(flow_manager.tsv_entries)))
+        for idx, (relpath, (id, timestamp)) in enumerate(flow_manager.tsv_entries.items(), 1):
+            print(f"{idx:{format}}.", timestamp, id, relpath)
+    elif args.flow_command == "show":
+        id_or_number = getattr(args, "id_or_number", None)
+        if id_or_number is None:
+            print("フロー番号またはUUIDを指定してください", file=sys.stderr)
+            return
+        # 数字なら番号→UUID変換
+        if re.fullmatch(r"\d+", id_or_number):
+            idx = int(id_or_number)
+            entries = list(flow_manager.tsv_entries.items())
+            if 1 <= idx <= len(entries):
+                id = entries[idx - 1][1][0]
+            else:
+                print("指定された番号のフローは存在しません", file=sys.stderr)
+                return
+        else:
+            id = id_or_number
+        try:
+            flow = flow_manager.get_flow(id)
+        except Exception as e:
+            print(f"フローの取得に失敗しました: {e}", file=sys.stderr)
+            return
+        print("Flow:", flow.updated, flow.id, flow.relpath)
+        histories = flow.get_histories()
+        for i, history in enumerate(histories, 1):
+            print()
+            print(f"======== 履歴 {i}/{len(histories)} ========")
+            for node_id in history:
+                node = node_manager.get_node(node_id)
+                node_info = f"{node.timestamp} {node.id} {node.relpath}"
+                print()
+                print(node_info)
+                print("-" * len(node_info))
+                for j, content in enumerate(node.contents):
+                    if j:
+                        print()
+                    name = "user" if content["role"] == "user" else node.model
+                    text = content["text"].rstrip()
+                    print(f"{name}: {text}")
+                    c, d, r = content["count"], content["duration"], content["rate"]
+                    print(f"[{c} / {d:.2f} s = {r:.2f} tps]")
+    else:
+        flow_command_parser.print_help()
 
 def run_cli():
     args = parser.parse_args()
     if args.command == "chat":
-        chat_command(args.service, args.prompt)
+        cmd_chat(args)
+    elif args.command == "flow":
+        cmd_flow(args)
     else:
         parser.print_help()
 

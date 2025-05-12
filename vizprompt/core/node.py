@@ -54,7 +54,8 @@ class Node:
         summary_updated: bool,
         summary_last_built: datetime,
         tags: list,
-        path: str,
+        data_dir: str,
+        relpath: str,
     ):
         self.id = id
         self.timestamp = timestamp
@@ -64,7 +65,13 @@ class Node:
         self.summary_updated = summary_updated
         self.summary_last_built = summary_last_built
         self.tags = tags
-        self.path = path
+        self.data_dir = data_dir
+        self.relpath = relpath
+
+        for content in self.contents:
+            if "rate" not in content:
+                c, d = content.get("count", 0), content.get("duration", 0)
+                content["rate"] = c / d if d > 0 else 0
 
     def to_xml(self) -> str:
         """
@@ -86,8 +93,8 @@ class Node:
                         "content": {
                             "role": c["role"],
                             "count": c.get("count", 0),
-                            "duration": float(f'{c.get("duration", 0):.2f}'),
-                            "rate": float(f'{(c.get("count", 0) / c.get("duration", 0)):.2f}' if c.get("duration", 0) > 0 else 0),
+                            "duration": c.get("duration", 0),
+                            "rate": c.get("rate", 0),
                             ":cdata": c.get("text", ""),
                         }
                     }
@@ -114,14 +121,16 @@ class Node:
         NodeインスタンスをXMLファイルに保存
         """
         xml = self.to_xml()
-        with open(self.path, "w", encoding="utf-8") as f:
+        path = os.path.join(self.data_dir, self.relpath)
+        with open(path, "w", encoding="utf-8") as f:
             f.write(xml)
 
     @classmethod
-    def load(cls, path):
+    def load(cls, data_dir, relpath):
         """
         XMLファイルからNodeインスタンスを読み込む
         """
+        path = os.path.join(data_dir, relpath)
         tree = ET.parse(path)
         root = tree.getroot()
         node_id = root.attrib["id"]
@@ -131,11 +140,15 @@ class Node:
             role = content.attrib["role"]
             count = int(content.attrib["count"])
             duration = float(content.attrib["duration"])
+            rate = float(content.attrib["rate"])
             text = content.text or ""
+            if text.startswith("\n") and text.endswith("\n"):
+                text = text[1:-1]
             contents.append({
                 "role": role,
                 "count": count,
                 "duration": duration,
+                "rate": rate,
                 "text": text,
             })
         model = root.findtext(".//model")
@@ -154,7 +167,8 @@ class Node:
             summary_updated=summary_updated,
             summary_last_built=summary_last_built,
             tags=tags,
-            path=path,
+            data_dir=data_dir,
+            relpath=relpath,
         )
 
 class NodeManager(BaseManager):
@@ -193,15 +207,13 @@ class NodeManager(BaseManager):
         if node_id in self.uuid_map:
             # キャッシュにない場合はファイルから読み込む
             relpath = self.uuid_map[node_id][0]
-            path = os.path.join(self.data_dir, relpath)
-            node = Node.load(path)
+            node = Node.load(self.data_dir, relpath)
             self.cache[node_id] = node
             return node
         raise FileNotFoundError(f"Node with ID {node_id} not found.")
 
     def create_node(self, prompt, response, g):
         relpath = self.get_next_relpath_and_folder()
-        node_path = os.path.join(self.data_dir, relpath)
 
         # 新規作成
         node_id = self.generate_uuid()
@@ -228,7 +240,8 @@ class NodeManager(BaseManager):
             summary_updated = False,
             summary_last_built = timestamp,
             tags = [],
-            path = node_path,
+            data_dir = self.data_dir,
+            relpath = relpath,
         )
         node.save()
 
