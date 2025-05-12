@@ -8,7 +8,7 @@ yaml.default_flow_style = False
 yaml.allow_unicode = True
 
 class Flow:
-    def __init__(self, id, name, created, updated, description, connections, data_dir, relpath):
+    def __init__(self, id, name, created, updated, description, nodes, connections, data_dir, relpath):
         self.id = id
         self.name = name
         self.created = created
@@ -16,6 +16,7 @@ class Flow:
         self.description = description
         self.data_dir = data_dir
         self.relpath = relpath
+        self.nodes = nodes
 
         # 有向グラフに変換（双方向）
         self.connections = [] # (from_id, to_id) のリスト
@@ -28,25 +29,17 @@ class Flow:
                 print(e, file=sys.stderr)
 
     def to_dict(self):
-        nodes = []
+        nodes = [{"index": i + 1, "id": node_id} for i, node_id in enumerate(self.nodes)]
+        uuid_to_index = {node_id: i + 1 for i, node_id in enumerate(self.nodes)}
         connections = []
-        uuid_to_index = {}
-
-        def id_to_index(id):
-            if id in uuid_to_index:
-                return uuid_to_index[id]
-            index = len(uuid_to_index) + 1
-            uuid_to_index[id] = index
-            nodes.append({"index": index, "id": id})
-            return index
-
         for (from_id, to_id) in self.connections:
-            from_index = id_to_index(from_id)
-            to_index = id_to_index(to_id)
-            connections.append({
-                "from": from_index,
-                "to": to_index
-            })
+            from_index = uuid_to_index.get(from_id)
+            to_index = uuid_to_index.get(to_id)
+            if from_index is not None and to_index is not None:
+                connections.append({
+                    "from": from_index,
+                    "to": to_index
+                })
 
         return {
             "id": self.id,
@@ -69,10 +62,15 @@ class Flow:
         with open(path, "r", encoding="utf-8") as f:
             data = yaml.load(f)
 
-        nodes = {node["index"]: node["id"] for node in data.get("nodes", [])}
+        nodes = []
+        index_to_id = {}
+        for node_id in data.get("nodes", []):
+            nodes.append(node_id["id"])
+            index_to_id[node_id["index"]] = node_id["id"]
         connections = [
-            (nodes[conn["from"]], nodes[conn["to"]])
+            (index_to_id[f], index_to_id[t])
             for conn in data.get("connections", [])
+            if (f := conn["from"]) in index_to_id and (t := conn["to"]) in index_to_id
         ]
 
         return cls(
@@ -81,6 +79,7 @@ class Flow:
             created=datetime.fromisoformat(data["created"]),
             updated=datetime.fromisoformat(data["updated"]),
             description=data.get("description", ""),
+            nodes=nodes,
             connections=connections,
             data_dir=data_dir,
             relpath=relpath,
@@ -90,6 +89,10 @@ class Flow:
         self.updated = datetime.now().astimezone()
 
     def connect(self, from_id, to_id):
+        if from_id and from_id not in self.nodes:
+            self.nodes.append(from_id)
+        if to_id and to_id not in self.nodes:
+            self.nodes.append(to_id)
         if (from_id, to_id) not in self.connections:
             if self.would_create_cycle(from_id, to_id):
                 raise Exception("循環が検出されました")
@@ -142,6 +145,8 @@ class Flow:
         for conn in list(self.connections):
             if node_id in conn:
                 self.connections.remove(conn)
+        if node_id in self.nodes:
+            self.nodes.remove(node_id)
         self._rebuild_graph()
         self.update()
 
@@ -149,7 +154,7 @@ class Flow:
         """
         指定したノード以前の履歴を取得
         """
-        if node_id not in self.graph_rev:
+        if node_id not in self.nodes:
             return []
 
         # 開始ノードから到達出来るノードを深さ優先で探索
@@ -187,16 +192,11 @@ class Flow:
         """
         すべての履歴を取得
         """
-        if not self.connections:
-            return []
-
         histories = []
+        nodes = set(self.nodes)
 
-        fwd = set(self.graph_fwd.keys())
-        rev = set(self.graph_rev.keys())
-
-        nodes = fwd | rev  # すべてのノード
-        terms = rev - fwd  # 終端ノード
+        # 終端ノード
+        terms = [n for n in self.nodes if n not in self.graph_fwd]
 
         # 終端ノードからたどれるノードをnodesから除去
         for n in terms:
@@ -262,6 +262,7 @@ class FlowManager(BaseManager):
             created=timestamp,
             updated=timestamp,
             description=description,
+            nodes=[],
             connections=[],
             data_dir=self.data_dir,
             relpath=relpath,

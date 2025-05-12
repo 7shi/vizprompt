@@ -128,9 +128,8 @@ def repl(generator):
                 history_ids = flow.get_history(prev_node_id) or [prev_node_id]
             history = node_manager.get_contents(history_ids)
             curr_node_id = chat(node_manager, generator, prompt, history)
-            if prev_node_id is not None:
-                flow.connect(prev_node_id, curr_node_id)
-                flow.save()
+            flow.connect(prev_node_id, curr_node_id)
+            flow.save()
             prev_node_id = curr_node_id
             print()
         except EOFError:
