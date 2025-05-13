@@ -32,7 +32,7 @@ flow_show_parser = flow_subparsers.add_parser("show", help="フローの詳細�
 flow_show_parser.add_argument("id_or_number", type=str, help="フロー番号またはUUID")
 
 import sys, re
-from .terminal import convert_markdown
+from .terminal import convert_markdown, MarkdownStreamConverter
 from ..core.node import NodeManager
 from ..core.flow import FlowManager
 
@@ -43,8 +43,10 @@ flow_manager = FlowManager(base_dir=base_dir)
 def chat(manager, generator, prompt, history=None):
     prompt = prompt.rstrip()
     print(f"{generator.model}: ", end="", flush=True)
+    converter = MarkdownStreamConverter()
     for chunk in generator.generate(prompt, history=history):
-        print(chunk, end="", flush=True)
+        print(converter.feed(chunk), end="", flush=True)
+    print(converter.flush(), end="", flush=True)
     if not generator.text.endswith("\n"):
         print() # 最後に改行
     generator.show_statistics_short()

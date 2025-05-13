@@ -33,3 +33,45 @@ def convert_markdown(text):
         result += Style.NORMAL
 
     return result
+
+class MarkdownStreamConverter:
+    """
+    ストリームで受け取ったテキストを逐次的に**ボールド**変換するクラス。
+    "*"が来たら次も"*"かを見てボールド切替、閉じられていなければ改行や終了時に自動で閉じる。
+    """
+    def __init__(self):
+        self.buffer = ""
+        self.bright_mode = False
+
+    def feed(self, chunk):
+        output = ""
+        i = 0
+        text = self.buffer + chunk
+        self.buffer = ""
+        while i < len(text):
+            # "**"を検出
+            if i + 1 < len(text) and text[i:i+2] == "**":
+                self.bright_mode = not self.bright_mode
+                output += Style.BRIGHT if self.bright_mode else Style.NORMAL
+                i += 2
+            else:
+                # 最後の"*"で終わっている場合はバッファに残す
+                if text[i] == "*" and i + 1 == len(text):
+                    self.buffer = "*"
+                    break
+                # 改行で自動で閉じる
+                if self.bright_mode and text[i] == "\n":
+                    output += Style.NORMAL
+                    self.bright_mode = False
+                output += text[i]
+                i += 1
+        return output
+
+    def flush(self):
+        # バッファに*が残っていた場合は出力
+        output = self.buffer
+        self.buffer = ""
+        if self.bright_mode:
+            output += Style.NORMAL
+            self.bright_mode = False
+        return output
