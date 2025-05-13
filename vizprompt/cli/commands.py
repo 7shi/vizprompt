@@ -32,6 +32,7 @@ flow_show_parser = flow_subparsers.add_parser("show", help="フローの詳細�
 flow_show_parser.add_argument("id_or_number", type=str, help="フロー番号またはUUID")
 
 import sys, re
+from .terminal import convert_markdown
 from ..core.node import NodeManager
 from ..core.flow import FlowManager
 
@@ -210,7 +211,7 @@ def show_node(node):
         if j:
             print()
         name = "user" if content["role"] == "user" else node.model
-        text = content["text"].rstrip()
+        text = convert_markdown(content["text"].rstrip())
         print(f"{name}: {text}")
         c, d, r = content["count"], content["duration"], content["rate"]
         print(f"[{c} / {d:.2f} s = {r:.2f} tps]")
