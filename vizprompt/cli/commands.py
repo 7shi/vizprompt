@@ -32,7 +32,7 @@ flow_show_parser = flow_subparsers.add_parser("show", help="フローの詳細�
 flow_show_parser.add_argument("id_or_number", type=str, help="フロー番号またはUUID")
 
 import sys, re
-from .terminal import convert_markdown, MarkdownStreamConverter
+from .terminal import bold, convert_markdown, MarkdownStreamConverter
 from ..core.node import NodeManager
 from ..core.flow import FlowManager
 
@@ -42,7 +42,7 @@ flow_manager = FlowManager(base_dir=base_dir)
 
 def chat(manager, generator, prompt, history=None):
     prompt = prompt.rstrip()
-    print(f"{generator.model}: ", end="", flush=True)
+    print(bold(generator.model + ":"), "", flush=True)
     converter = MarkdownStreamConverter()
     for chunk in generator.generate(prompt, history=history):
         print(converter.feed(chunk), end="", flush=True)
@@ -94,7 +94,7 @@ def repl(generator):
     prev_node_id = None
     while True:
         try:
-            prompt = input("User: ")
+            prompt = input(bold("User:") + " ")
             if prompt is None:
                 return
             cmd, args = parse_command(prompt)
@@ -214,7 +214,7 @@ def show_node(node):
             print()
         name = "user" if content["role"] == "user" else node.model
         text = convert_markdown(content["text"].rstrip())
-        print(f"{name}: {text}")
+        print(bold(name + ":"), text)
         c, d, r = content["count"], content["duration"], content["rate"]
         print(f"[{c} / {d:.2f} s = {r:.2f} tps]")
 

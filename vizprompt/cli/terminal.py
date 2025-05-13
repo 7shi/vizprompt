@@ -2,6 +2,10 @@ from colorama import just_fix_windows_console, Style
 
 just_fix_windows_console()
 
+def bold(text):
+    """Coloramaの太字に変換"""
+    return Style.BRIGHT + text + Style.NORMAL
+
 def convert_markdown(text):
     """Markdownの**強調**部分をColoramaの太字に変換（閉じられていなくても対応）"""
     result = ""
