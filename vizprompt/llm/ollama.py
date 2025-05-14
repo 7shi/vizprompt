@@ -1,17 +1,19 @@
 '''Ollama APIと通信するためのモジュール'''
 import ollama
-from .base import BaseGenerator
+from .base import BaseGenerator, test
 
 default_model = "gemma3:1b"
 
-class OllamaGenerator(BaseGenerator):
-    def __init__(self, model = default_model):
+class Generator(BaseGenerator):
+    def __init__(self, model=None):
         """
-        OllamaGeneratorの初期化。
+        Generatorの初期化。
 
         Args:
             model_name: 使用するOllamaモデルの名前。
         """
+        if model is None:
+            model = default_model
         super().__init__(model)
 
     def chat(self, messages):
@@ -65,14 +67,4 @@ class OllamaGenerator(BaseGenerator):
         return self.chat(contents)
 
 if __name__ == '__main__':
-    user_prompt = "こんにちは、自己紹介してください。"
-    print(f"ユーザー: {user_prompt}")
-    g = OllamaGenerator()
-    print(f"{g.model}: ", end="")
-    response = g.generate(user_prompt)
-    for chunk in response:
-        print(chunk, end="", flush=True)
-    if not g.text.endswith("\n"):
-        print() # 最後に改行
-    print()
-    g.show_statistics()
+    test(Generator)

@@ -6,19 +6,16 @@ subparsers = parser.add_subparsers(dest="command", help='トップレベルコ�
 
 # 'chat' サブコマンド
 chat_command_parser = subparsers.add_parser("chat", help="LLMとチャットします")
-chat_subparsers = chat_command_parser.add_subparsers(dest="service", help='チャットサービス', required=True)
 
-# 'chat gemini' サブコマンド
-gemini_parser = chat_subparsers.add_parser("gemini", help="Geminiとチャットします")
-gemini_parser.add_argument("prompt", type=str, nargs="?", help="Geminiへのプロンプト")
+# LLMサービスオプション (排他・必須)
+service_group = chat_command_parser.add_mutually_exclusive_group(required=True)
+service_group.add_argument("--openai", action="store_true", help="OpenAIとチャットします")
+service_group.add_argument("--gemini", action="store_true", help="Geminiとチャットします")
+service_group.add_argument("--ollama", action="store_true", help="Ollamaとチャットします")
 
-# 'chat ollama' サブコマンド
-ollama_parser = chat_subparsers.add_parser("ollama", help="Ollamaとチャットします")
-ollama_parser.add_argument("prompt", type=str, nargs="?", help="Ollamaへのプロンプト")
-
-# 'chat openai' サブコマンド
-openai_parser = chat_subparsers.add_parser("openai", help="OpenAIとチャットします")
-openai_parser.add_argument("prompt", type=str, nargs="?", help="OpenAIへのプロンプト")
+# プロンプト引数
+chat_command_parser.add_argument("-m", "--model", type=str, help="使用するモデル名")
+chat_command_parser.add_argument("prompt", type=str, nargs="?", help="LLMへのプロンプト")
 
 # 'flow' サブコマンド
 flow_command_parser = subparsers.add_parser("flow", help="フロー管理コマンド")
@@ -158,24 +155,26 @@ def repl(generator):
             print(f"エラーが発生しました: {e}", file=sys.stderr)
 
 def cmd_chat(args):
-    generator = None
-    if args.service == "gemini":
+    llm = None
+    if args.gemini:
         from ..llm import gemini
-        generator = gemini.GeminiGenerator()
-    elif args.service == "ollama":
+        llm = gemini
+    elif args.ollama:
         from ..llm import ollama
-        generator = ollama.OllamaGenerator()
-    elif args.service == "openai":
+        llm = ollama
+    elif args.openai:
         from ..llm import openai
-        generator = openai.OpenAIGenerator()
+        llm = openai
 
-    if generator:
+    if llm:
+        generator = llm.Generator(model=args.model)
         if args.prompt:
-            print("User:", args.prompt)
+            print(bold("User:"), args.prompt)
             chat(node_manager, generator, args.prompt)
         else:
             repl(generator)
     else:
+        # 排他・必須オプションのため、このelse節には到達しない想定
         chat_command_parser.print_help()
 
 def cmd_flow(args):

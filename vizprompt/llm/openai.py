@@ -2,7 +2,7 @@
 import os
 import time
 from openai import OpenAI
-from .base import BaseGenerator
+from .base import BaseGenerator, test
 
 class Settings:
     """
@@ -39,8 +39,8 @@ elif Defaults.Groq.api_key:
 else:
     raise ValueError("環境変数 OPENAI_API_KEY または OPENROUTER_API_KEY または GROQ_API_KEY が設定されていません。")
 
-class OpenAIGenerator(BaseGenerator):
-    def __init__(self, model=defaults.model, url=defaults.url, api_key=defaults.api_key):
+class Generator(BaseGenerator):
+    def __init__(self, model=None, url=defaults.url, api_key=defaults.api_key):
         """
         OpenAIGeneratorの初期化。
 
@@ -48,6 +48,8 @@ class OpenAIGenerator(BaseGenerator):
             model: 使用するモデルの名前。
             url: APIのURL。
         """
+        if model is None:
+            model = defaults.model
         super().__init__(model)
         self.url = url
         self.client = OpenAI(base_url=url, api_key=api_key)
@@ -121,14 +123,4 @@ class OpenAIGenerator(BaseGenerator):
         return self.chat(contents)
 
 if __name__ == '__main__':
-    user_prompt = "こんにちは、自己紹介してください。"
-    print(f"ユーザー: {user_prompt}")
-    g = OpenAIGenerator()
-    print(f"{g.model}: ", end="")
-    response = g.generate(user_prompt)
-    for chunk in response:
-        print(chunk, end="", flush=True)
-    if not g.text.endswith("\n"):
-        print() # 最後に改行
-    print()
-    g.show_statistics()
+    test(Generator)

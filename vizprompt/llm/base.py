@@ -28,3 +28,19 @@ class BaseGenerator:
         (role, content) のリストを履歴形式に変換
         """
         return [{"role": role, "content": content} for role, content in history]
+
+def test(Generator):
+    """
+    Generatorのテスト
+    """
+    user_prompt = "こんにちは、自己紹介してください。"
+    print(f"ユーザー: {user_prompt}")
+    g = Generator()
+    print(f"{g.model}: ", end="")
+    response = g.generate(user_prompt)
+    for chunk in response:
+        print(chunk, end="", flush=True)
+    if not g.text.endswith("\n"):
+        print() # 最後に改行
+    print()
+    g.show_statistics()

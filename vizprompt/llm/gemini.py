@@ -1,7 +1,7 @@
 '''Gemini APIと通信するためのモジュール'''
 import os, sys, re, time
 from google import genai
-from .base import BaseGenerator
+from .base import BaseGenerator, test
 
 default_model = "gemini-2.0-flash-001"
 
@@ -11,14 +11,16 @@ if not api_key:
 
 client = genai.Client(api_key=api_key)
 
-class GeminiGenerator(BaseGenerator):
-    def __init__(self, model = default_model):
+class Generator(BaseGenerator):
+    def __init__(self, model=None):
         """
-        GeminiGeneratorの初期化。
+        Generatorの初期化。
 
         Args:
             model_name: 使用するGeminiモデルの名前。
         """
+        if model is None:
+            model = default_model
         super().__init__(model)
 
     def generate_content_retry(self, config, contents):
@@ -122,15 +124,4 @@ class GeminiGenerator(BaseGenerator):
         return self.generate_content_retry(config, contents)
 
 if __name__ == '__main__':
-    # 簡単なテスト用（環境変数 GEMINI_API_KEY を設定して実行）
-    user_prompt = "こんにちは、自己紹介してください。"
-    print(f"ユーザー: {user_prompt}")
-    g = GeminiGenerator()
-    print(f"{g.model}: ", end="")
-    response = g.generate(user_prompt)
-    for chunk in response:
-        print(chunk, end="", flush=True)
-    if not g.text.endswith("\n"):
-        print() # 最後に改行
-    print()
-    g.show_statistics()
+    test(Generator)
