@@ -150,6 +150,12 @@ class Flow:
         self._rebuild_graph()
         self.update()
 
+    def get_previous(self, node_id):
+        """
+        指定したノードの前のノードを取得
+        """
+        return self.graph_rev.get(node_id, [])
+
     def get_history(self, node_id):
         """
         指定したノード以前の履歴を取得

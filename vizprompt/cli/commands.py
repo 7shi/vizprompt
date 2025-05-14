@@ -52,7 +52,7 @@ def chat(manager, generator, prompt, history=None):
     # ノード保存処理
     node = manager.create_node(prompt, response, generator)
     print(f"チャット履歴をノードとして保存しました: {node.relpath} (ID: {node.id})")
-    return node.id
+    return node
 
 commands = {
     "/q": "セッションを終了します",
@@ -61,6 +61,7 @@ commands = {
     "/flow show <id>": "フローの詳細またはログを表示します",
     "/flow select <id>": "フローを選択します",
     "/prev": "前のノードを表示します",
+    "/retry": "前のノードを再実行します",
     "/?": "このヘルプを表示します"
 }
 commands_max = max(len(cmd) for cmd in commands)
@@ -88,7 +89,7 @@ def parse_command(line):
 
 def repl(generator):
     flow = None
-    prev_node_id = None
+    prev_node = None
     while True:
         try:
             prompt = input(bold("User:") + " ")
@@ -117,37 +118,51 @@ def repl(generator):
                     case "/flow select":
                         try:
                             flow = get_flow(args[0])
-                            prev_node_id = flow.nodes[-1] if flow.nodes else None
+                            prev_node = node_manager.get_node(flow.nodes[-1]) if flow.nodes else None
                             print("フローを選択しました:", flow.id, flow.relpath)
                         except Exception as e:
                             print(e, file=sys.stderr)
                         continue
                     case "/prev":
-                        if prev_node_id is None:
+                        if prev_node is None:
                             print("前のノードはありません。", file=sys.stderr)
                         else:
-                            node = node_manager.get_node(prev_node_id)
-                            show_node(node)
+                            show_node(prev_node)
+                        continue
+                    case "/retry":
+                        if prev_node is None:
+                            print("前のノードはありません。", file=sys.stderr)
+                        else:
+                            print("ノードを再実行します。")
+                            history_ids = flow.get_history(prev_node.id)
+                            history_ids.remove(prev_node.id)
+                            history = node_manager.get_contents(history_ids)
+                            curr_node = chat(node_manager, generator, prev_node.contents[0]["text"], history)
+                            for prev in flow.get_previous(prev_node.id):
+                                flow.connect(prev, curr_node.id)
+                            flow.save()
+                            prev_node = curr_node
                         continue
                     case "/?":
                         show_commands()
                         continue
             elif args:
+                # エラーメッセージを表示
                 print(args[0])
                 show_commands()
                 continue
             if not flow:
                 flow = flow_manager.create_flow(name="Chat Session")
-            if prev_node_id is None:
+            if prev_node is None:
                 history_ids = []
             else:
                 # 前のノードの履歴を取得
-                history_ids = flow.get_history(prev_node_id) or [prev_node_id]
+                history_ids = flow.get_history(prev_node.id)
             history = node_manager.get_contents(history_ids)
-            curr_node_id = chat(node_manager, generator, prompt, history)
-            flow.connect(prev_node_id, curr_node_id)
+            curr_node = chat(node_manager, generator, prompt, history)
+            flow.connect(prev_node.id if prev_node else None, curr_node.id)
             flow.save()
-            prev_node_id = curr_node_id
+            prev_node = curr_node
             print()
         except EOFError:
             return
