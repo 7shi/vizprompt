@@ -156,64 +156,108 @@ class Flow:
         """
         return self.graph_rev.get(node_id, [])
 
+    def get_ancestors_dfs(self, node_id: str) -> set[str]:
+        """
+        指定したノードから到達できるノードを深さ優先で探索
+        """
+        if node_id not in self.nodes:
+            return set()
+
+        # 開始ノードから到達出来るノードを深さ優先で探索
+        nodes = set()
+        stack = [node_id]
+        while stack:
+            n = stack.pop()
+            if n not in nodes:
+                nodes.add(n)
+                stack.extend(self.graph_rev.get(n, []))
+        return nodes
+
+    def get_in_degree_map(self, nodes: set[str]) -> dict[str, int]:
+        """
+        指定した部分グラフにおけるノードの入次数（逆方向：子ノード数）を取得
+        """
+        # ルートを限定するため、graph_fwdの個数とは異なる
+        in_degree = {n: 0 for n in nodes}
+        for n in nodes:
+            for m in self.graph_rev.get(n, []):
+                if m in nodes:
+                    in_degree[m] += 1
+        return in_degree
+
+    def build_history_by_kahn_lifo(self, in_degree: dict[str, int]) -> list[str]:
+        """
+        Kahn 法 (LIFO) を用いて履歴を構築する
+        """
+        history = []
+        terms = reversed([n for n in self.nodes if in_degree.get(n, -1) == 0])
+        print("terms:", terms)
+        for node_id in terms:
+            stack = [node_id]
+            while stack:
+                n = stack.pop()
+                history.insert(0, n)
+                for m in self.graph_rev.get(n, []):
+                    in_degree[m] -= 1
+                    # すべての合流が解消すれば先に進む（分岐のjoin）
+                    if in_degree[m] == 0:
+                        stack.append(m)
+        return history
+
     def get_history(self, node_id):
         """
         指定したノード以前の履歴を取得
         """
-        if node_id not in self.nodes:
+        nodes = self.get_ancestors_dfs(node_id)
+        if not nodes:
             return []
+        in_degree = self.get_in_degree_map(nodes)
+        return self.build_history_by_kahn_lifo(in_degree)
 
-        # 開始ノードから到達出来るノードを深さ優先で探索
-        visited = set()
-        stack = [node_id]
-        while stack:
-            n = stack.pop()
-            if n not in visited:
-                visited.add(n)
-                stack.extend(self.graph_rev.get(n, []))
-
-        # 各ノードの入次数を数える
-        # 今回通るルートに限定するため、graph_fwdの個数とは異なる
-        in_degree = {n: 0 for n in visited}
-        for n in visited:
-            for m in self.graph_rev.get(n, []):
-                if m in visited:
-                    in_degree[m] += 1
-
-        # Kahn 法 (LIFO)
-        history = []
-        stack = [node_id]
-        while stack:
-            n = stack.pop()
-            history.insert(0, n)
-            for m in self.graph_rev.get(n, []):
-                in_degree[m] -= 1
-                # すべての合流が解消すれば先に進む（分岐のjoin）
-                if in_degree[m] == 0:
-                    stack.append(m)
-
-        return history
+    @staticmethod
+    def merge_overlapping_sets(list_of_sets: list[set[str]]) -> list[set[str]]:
+        """
+        setのlistを渡して、setに重複があれば統合したlistを返す
+        """
+        merged = []
+        for s in list_of_sets:
+            s = s.copy()
+            found = []
+            for m in merged:
+                if s & m:
+                    found.append(m)
+            if found:
+                # すべての重複集合を統合
+                for m in found:
+                    s |= m
+                    merged.remove(m)
+            merged.append(s)
+        return merged
 
     def get_histories(self):
         """
         すべての履歴を取得
         """
-        histories = []
-        nodes = set(self.nodes)
-
-        # 終端ノード
+        # 終端ノードを取得
         terms = [n for n in self.nodes if n not in self.graph_fwd]
 
-        # 終端ノードからたどれるノードをnodesから除去
-        for n in terms:
-            history = self.get_history(n)
+        # 終端ノードから到達できるノードを取得して、重複を統合
+        sets = self.merge_overlapping_sets(
+            [self.get_ancestors_dfs(n) for n in terms]
+        )
+
+        # 循環したノードをチェック（原則的にないはず）
+        left_nodes = set(self.nodes) - set().union(*sets)
+        if left_nodes:
+            print("循環ノード:", left_nodes, file=sys.stderr)
+
+        # 履歴に変換
+        histories = []
+        for s in sets:
+            in_degree = self.get_in_degree_map(s)
+            print("in_degree:", in_degree)
+            history = self.build_history_by_kahn_lifo(in_degree)
             histories.append(history)
-            nodes -= set(history)
-
-        # nodesに残っているのは循環したノード（原則的にないはず）
-        if nodes:
-            print(f"循環ノード: {nodes}", file=sys.stderr)
-
         return histories
 
 class FlowManager(BaseManager):
