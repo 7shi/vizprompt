@@ -190,9 +190,8 @@ class Flow:
         Kahn 法 (LIFO) を用いて履歴を構築する
         """
         history = []
-        terms = reversed([n for n in self.nodes if in_degree.get(n, -1) == 0])
-        print("terms:", terms)
-        for node_id in terms:
+        terms = [n for n in self.nodes if in_degree.get(n, -1) == 0]
+        for node_id in reversed(terms):
             stack = [node_id]
             while stack:
                 n = stack.pop()
@@ -255,7 +254,6 @@ class Flow:
         histories = []
         for s in sets:
             in_degree = self.get_in_degree_map(s)
-            print("in_degree:", in_degree)
             history = self.build_history_by_kahn_lifo(in_degree)
             histories.append(history)
         return histories
