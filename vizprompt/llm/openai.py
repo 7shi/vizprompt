@@ -30,7 +30,7 @@ class Defaults:
         model="gemma2-9b-it",
     )
     Grok = Settings(
-        api_key=os.getenv("GROK_API_KEY"),
+        api_key=os.getenv("XAI_API_KEY"),
         url="https://api.x.ai/v1",
         model="grok-3-mini-latest",
     )
@@ -44,7 +44,7 @@ elif Defaults.Groq.api_key:
 elif Defaults.Grok.api_key:
     defaults = Defaults.Grok
 else:
-    raise ValueError("環境変数 OPENAI_API_KEY/OPENROUTER_API_KEY/GROQ_API_KEY/GROK_API_KEY が設定されていません。")
+    raise ValueError("環境変数 OPENAI_API_KEY/OPENROUTER_API_KEY/GROQ_API_KEY/XAI_API_KEY が設定されていません。")
 
 class Generator(BaseGenerator):
     def __init__(self, model=None, url=defaults.url, api_key=defaults.api_key):
