@@ -267,6 +267,58 @@ class Flow:
             histories.append(history)
         return histories
 
+    def convert_map(self, history: list[str]) -> list[str]:
+        """
+        `history`は`get_history`で取得した履歴
+        履歴を分岐・合流でネストしたテキスト形式に変換
+        ノードは出現順に1,2,3,...と連番を振る
+        分岐点（out-degree>1）で"<"、合流点（in-degree>1）で">"を付ける
+        2行目以降はスペース2つでインデント（ネストは数えない）
+        """
+        # 入次数・出次数を取得
+        fwd = {n: [] for n in history}
+        rev = {n: [] for n in history}
+        idmap  = {} # ノードIDから連番へのマップ
+        for n in history:
+            idmap[n] = str(len(idmap) + 1)
+            for m in self.graph_fwd.get(n, []):
+                if m in history:
+                    # n (fwd) → m (rev)
+                    fwd[n].append(m)
+                    rev[m].append(n)
+
+        # 履歴を分岐・合流でネストしたテキスト形式に変換
+        lines = []
+        line = ""
+        prev = None # 直前のノード
+        for n in history:
+            num = idmap[n]
+            if prev:
+                if prev not in rev[n]:
+                    outs = ",".join(idmap[m] for m in fwd[prev])
+                    if outs:
+                        line += f">{outs}"
+                    lines.append(line)
+                    line = "  "
+                    ins = ",".join(idmap[m] for m in rev[n])
+                    if ins:
+                        line += f"{ins}<"
+                elif len(rev[n]) > 1: # 合流点
+                    lines.append(f"{line}>{num}")
+                    line = "  >"
+                elif len(fwd[prev]) > 1: # 直前で分岐
+                    pass
+                else: # 連続的な推移
+                    line += "→"
+            line += str(num)
+            if len(fwd[n]) > 1: # 分岐点
+                lines.append(f"{line}<")
+                line = f"  {num}<"
+            prev = n
+        lines.append(line)
+
+        return lines
+
 class FlowManager(BaseManager):
     def __init__(self, base_dir="project"):
         self.base_dir = base_dir
