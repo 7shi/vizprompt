@@ -276,44 +276,44 @@ class Flow:
         2行目以降はスペース2つでインデント（ネストは数えない）
         """
         # 入次数・出次数を取得
-        fwd = {n: [] for n in history}
-        rev = {n: [] for n in history}
-        idmap  = {} # ノードIDから連番へのマップ
+        fwd = {str(self.node_index[n]): [] for n in history}
+        rev = {k: [] for k in fwd}
         for n in history:
-            idmap[n] = str(len(idmap) + 1)
+            ni = str(self.node_index[n])
             for m in self.graph_fwd.get(n, []):
                 if m in history:
+                    mi = str(self.node_index[m])
                     # n (fwd) → m (rev)
-                    fwd[n].append(m)
-                    rev[m].append(n)
+                    fwd[ni].append(mi)
+                    rev[mi].append(ni)
 
         # 履歴を分岐・合流でネストしたテキスト形式に変換
         lines = []
         line = ""
         prev = None # 直前のノード
         for n in history:
-            num = idmap[n]
+            i = str(self.node_index[n])
             if prev:
                 if prev not in rev[n]:
-                    outs = ",".join(idmap[m] for m in fwd[prev])
+                    outs = ",".join(fwd[prev])
                     if outs:
                         line += f">{outs}"
                     lines.append(line)
                     line = "  "
-                    ins = ",".join(idmap[m] for m in rev[n])
+                    ins = ",".join(rev[n])
                     if ins:
                         line += f"{ins}<"
                 elif len(rev[n]) > 1: # 合流点
-                    lines.append(f"{line}>{num}")
+                    lines.append(f"{line}>{i}")
                     line = "  >"
                 elif len(fwd[prev]) > 1: # 直前で分岐
                     pass
                 else: # 連続的な推移
                     line += "→"
-            line += str(num)
-            if len(fwd[n]) > 1: # 分岐点
+            line += i
+            if len(fwd[i]) > 1: # 分岐点
                 lines.append(f"{line}<")
-                line = f"  {num}<"
+                line = f"  {i}<"
             prev = n
         lines.append(line)
 
