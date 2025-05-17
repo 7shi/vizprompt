@@ -106,7 +106,7 @@ class Flow:
         (from_id, to_id) を追加した場合に循環が発生するか判定（DFS）
         """
         # 確認用にコピーして仮接続
-        graph = self.graph_fwd.copy()
+        graph = {k: v.copy() for k, v in self.graph_fwd.items()}
         graph.setdefault(from_id, []).append(to_id)
 
         # DFSで循環を検出
