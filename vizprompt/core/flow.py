@@ -17,6 +17,7 @@ class Flow:
         self.data_dir = data_dir
         self.relpath = relpath
         self.nodes = nodes
+        self.node_index = self._node_index()
 
         # 有向グラフに変換（双方向）
         self.connections = [] # (from_id, to_id) のリスト
@@ -28,13 +29,15 @@ class Flow:
             except Exception as e:
                 print(e, file=sys.stderr)
 
+    def _node_index(self):
+        return {n: i for i, n in enumerate(self.nodes, 1)}
+
     def to_dict(self):
-        nodes = [{"index": i + 1, "id": node_id} for i, node_id in enumerate(self.nodes)]
-        uuid_to_index = {node_id: i + 1 for i, node_id in enumerate(self.nodes)}
+        nodes = [{"index": i, "id": node_id} for i, node_id in enumerate(self.nodes, 1)]
         connections = []
         for (from_id, to_id) in self.connections:
-            from_index = uuid_to_index.get(from_id)
-            to_index = uuid_to_index.get(to_id)
+            from_index = self.node_index.get(from_id)
+            to_index   = self.node_index.get(to_id)
             if from_index is not None and to_index is not None:
                 connections.append({
                     "from": from_index,
@@ -91,8 +94,10 @@ class Flow:
     def connect(self, from_id, to_id):
         if from_id and from_id not in self.nodes:
             self.nodes.append(from_id)
+            self.node_index[from_id] = len(self.nodes)
         if to_id and to_id not in self.nodes:
             self.nodes.append(to_id)
+            self.node_index[to_id] = len(self.nodes)
         if (from_id, to_id) not in self.connections:
             if self.would_create_cycle(from_id, to_id):
                 raise Exception("循環が検出されました")
@@ -129,6 +134,7 @@ class Flow:
         """
         グラフを再構築する（接続が変更された場合に呼び出す）
         """
+        self.connections = []
         self.graph_fwd = {}
         self.graph_rev = {}
         for from_id, to_id in self.connections:
@@ -147,6 +153,7 @@ class Flow:
                 self.connections.remove(conn)
         if node_id in self.nodes:
             self.nodes.remove(node_id)
+            self.node_index = self._node_index()
         self._rebuild_graph()
         self.update()
 
