@@ -240,16 +240,19 @@ class Flow:
         starts = [n for n in self.nodes if n not in self.graph_rev]
 
         # 開始ノードから到達できるノードを深さ優先探索で取得
+        visited = set()
         routes = []
-        for n in starts:
-            visited = set()
-            stack = [n]
+        for start in starts:
+            route = set()
+            stack = [start]
             while stack:
-                m = stack.pop()
-                if m not in visited:
-                    visited.add(m)
-                    stack.extend(self.graph_fwd.get(m, []))
-            routes.append(visited)
+                n = stack.pop()
+                if n not in route:
+                    route.add(n)
+                    if n not in visited:
+                        stack.extend(self.graph_fwd.get(n, []))
+            routes.append(route)
+            visited.update(route)
 
         # 重複を統合
         merged = self.merge_overlapping_sets(routes)
