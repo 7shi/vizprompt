@@ -258,7 +258,7 @@ class Flow:
         merged = self.merge_overlapping_sets(routes)
 
         # 循環したノードをチェック（原則的にないはず）
-        left_nodes = set(self.nodes) - set().union(*merged)
+        left_nodes = set(self.nodes) - visited
         if left_nodes:
             print("循環ノード:", left_nodes, file=sys.stderr)
 
