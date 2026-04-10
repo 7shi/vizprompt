@@ -7,20 +7,16 @@
 ### 開発コマンド
 ```bash
 # CLIチャットインターフェースの実行
-uv.exe run vizprompt chat ollama "メッセージをここに入力"
-uv.exe run vizprompt chat openai "メッセージをここに入力"
-uv.exe run vizprompt chat gemini "メッセージをここに入力"
+uv run vizprompt chat ollama "メッセージをここに入力"
+uv run vizprompt chat openai "メッセージをここに入力"
+uv run vizprompt chat gemini "メッセージをここに入力"
 
 # テストの実行
-uv.exe run pytest
+uv run pytest
 
 # 特定のテストの実行
-uv.exe run pytest tests/test_flow_convert_map.py
+uv run pytest tests/test_flow_convert_map.py
 ```
-
-## uv.exeを使用する理由
-
-- プロジェクトはWindows側にあるが、Claude CodeはWSLで実行されるため、Windows側のuvを使用するため。
 
 ## アーキテクチャ概要
 
