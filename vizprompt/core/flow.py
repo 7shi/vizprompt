@@ -366,6 +366,8 @@ class Flow:
         for merge in [n for n in history if is_merge(n)]:
             depth = merge_cont_depth.get(merge, 0)
             nodes, end = walk(merge)
+            if nodes == [merge] and end == ("terminal", None):
+                continue  # 後続なし：分岐エッジに既出のため省略
             lines.append(render(">", depth, nodes, end))
             if end[0] == "branch":
                 process_branch(end[1], depth + 1)

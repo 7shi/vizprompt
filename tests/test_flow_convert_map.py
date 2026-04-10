@@ -129,8 +129,6 @@ def test_convert_map_7():
 2<
   2<>3
   2<>4
->3
->4
 """.strip()]
     assert result == expected
 
