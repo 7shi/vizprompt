@@ -232,9 +232,9 @@ class Flow:
             merged.append(s)
         return merged
 
-    def get_histories(self):
+    def get_routes(self):
         """
-        すべての履歴を取得
+        すべてのルートを取得
         """
         # 開始ノードを取得
         starts = [n for n in self.nodes if n not in self.graph_rev]
@@ -254,17 +254,20 @@ class Flow:
             routes.append(route)
             visited.update(route)
 
-        # 重複を統合
-        merged = self.merge_overlapping_sets(routes)
-
         # 循環したノードをチェック（原則的にないはず）
         left_nodes = set(self.nodes) - visited
         if left_nodes:
             print("循環ノード:", left_nodes, file=sys.stderr)
 
-        # 履歴に変換
+        # 重複を統合
+        return self.merge_overlapping_sets(routes)
+
+    def get_histories(self):
+        """
+        すべての履歴を取得
+        """
         histories = []
-        for s in merged:
+        for s in self.get_routes():
             in_degree = self.get_in_degree_map(s)
             history = self.build_history_by_kahn_lifo(in_degree)
             histories.append(history)
@@ -272,53 +275,89 @@ class Flow:
 
     def convert_map(self, history: list[str]) -> list[str]:
         """
-        `history`は`get_history`で取得した履歴
-        履歴を分岐・合流でネストしたテキスト形式に変換
-        ノードは出現順に1,2,3,...と連番を振る
-        分岐点（out-degree>1）で"<"、合流点（in-degree>1）で">"を付ける
-        2行目以降はスペース2つでインデント（ネストは数えない）
+        履歴をテキスト形式に変換
+        Args:
+            history: topological 順にソートされたノードのリスト
+        Returns:
+            履歴をテキスト形式に変換した行のリスト
+        Notes:
+            - ノードは出現順に1,2,3,...と連番を振る
+            - 分岐点（out-degree>1）で"<"、合流点（in-degree>1）で">"を付ける
+            - 2行目以降はスペース2つでインデント（ネストは数えない）
         """
-        # 入次数・出次数を取得
-        fwd = {str(self.node_index[n]): [] for n in history}
-        rev = {k: [] for k in fwd}
+        # history 限定の fwd / rev を構築
+        in_history = set(history)
+        fwd = {n: [m for m in self.graph_fwd.get(n, []) if m in in_history] for n in history}
+        rev = {n: [] for n in history}
         for n in history:
-            ni = str(self.node_index[n])
-            for m in self.graph_fwd.get(n, []):
-                if m in history:
-                    mi = str(self.node_index[m])
-                    # n (fwd) → m (rev)
-                    fwd[ni].append(mi)
-                    rev[mi].append(ni)
+            for m in fwd[n]:
+                rev[m].append(n)
 
-        # 履歴を分岐・合流でネストしたテキスト形式に変換
+        def idx(n: str) -> str:
+            return str(self.node_index[n])
+
+        is_branch = lambda n: len(fwd[n]) > 1
+        is_merge  = lambda n: len(rev[n]) > 1
+
+        def walk(entry: str, skip_if_merge: bool = False):
+            """
+            entry から前方に1直線に進み、分岐・マージ・終端のいずれかで停止する。
+            戻り値: (通過ノードのリスト, ("branch"|"merge"|"terminal", 関連ノード or None))
+            skip_if_merge=True かつ entry 自身がマージなら、nodes=[] で即マージ終端を返す
+            （branch_edge がマージへ直結する場合のため）。
+            """
+            if skip_if_merge and is_merge(entry):
+                return [], ("merge", entry)
+            nodes = [entry]
+            if is_branch(entry):
+                return nodes, ("branch", entry)
+            current = entry
+            while True:
+                outs = fwd[current]
+                if not outs:
+                    return nodes, ("terminal", None)
+                nxt = outs[0]  # 分岐でない前提（上で branch 判定済み）
+                if is_merge(nxt):
+                    return nodes, ("merge", nxt)
+                nodes.append(nxt)
+                if is_branch(nxt):
+                    return nodes, ("branch", nxt)
+                current = nxt
+
+        def render(head: str, indent: bool, nodes: list[str], end) -> str:
+            parts = []
+            if indent:
+                parts.append("  ")
+            if head:
+                parts.append(head)
+            if nodes:
+                parts.append("→".join(idx(n) for n in nodes))
+            kind, target = end
+            if kind == "branch":
+                parts.append("<")
+            elif kind == "merge":
+                parts.append(f">{idx(target)}")
+            return "".join(parts)
+
         lines = []
-        line = ""
-        prev = None # 直前のノード
-        for n in history:
-            i = str(self.node_index[n])
-            if prev:
-                if prev not in rev[n]:
-                    outs = ",".join(fwd[prev])
-                    if outs:
-                        line += f">{outs}"
-                    lines.append(line)
-                    line = "  "
-                    ins = ",".join(rev[n])
-                    if ins:
-                        line += f"{ins}<"
-                elif len(rev[n]) > 1: # 合流点
-                    lines.append(f"{line}>{i}")
-                    line = "  >"
-                elif len(fwd[prev]) > 1: # 直前で分岐
-                    pass
-                else: # 連続的な推移
-                    line += "→"
-            line += i
-            if len(fwd[i]) > 1: # 分岐点
-                lines.append(f"{line}<")
-                line = f"  {i}<"
-            prev = n
-        lines.append(line)
+
+        # 1. 各 start セグメント + その分岐エッジセグメントを出力
+        starts = [n for n in history if not rev[n]]
+        first = True
+        for start in starts:
+            nodes, end = walk(start)
+            lines.append(render("", not first, nodes, end))
+            first = False
+            if end[0] == "branch":
+                branch = end[1]
+                for target in fwd[branch]:
+                    sub_nodes, sub_end = walk(target, skip_if_merge=True)
+                    lines.append(render(f"{idx(branch)}<", True, sub_nodes, sub_end))
+
+        # 2. マージ継続セグメントを topological 順に出力
+        for merge in [n for n in history if is_merge(n)]:
+            nodes, end = walk(merge)
+            lines.append(render(">", True, nodes, end))
 
         return lines
 

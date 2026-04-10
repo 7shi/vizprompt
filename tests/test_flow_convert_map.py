@@ -114,3 +114,22 @@ def test_convert_map_6():
   >6→7
 """.strip()]
     assert result == expected
+
+def test_convert_map_7():
+    result = make_flow_map("""
+    1 --> 3
+    1 --> 4
+    2 --> 3
+    2 --> 4
+""")
+    expected = ["""
+1<
+  1<>3
+  1<>4
+  2<
+  2<>3
+  2<>4
+  >3
+  >4
+""".strip()]
+    assert result == expected
