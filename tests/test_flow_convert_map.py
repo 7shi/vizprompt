@@ -54,8 +54,8 @@ def test_convert_map_3():
 """)
     expected = ["""
 1>3
-  2>3
-  >3→4
+2>3
+>3→4
 """.strip()]
     assert result == expected
 
@@ -72,7 +72,7 @@ def test_convert_map_4():
 1→2<
   2<3>5
   2<4>5
-  >5→6
+>5→6
 """.strip()]
     assert result == expected
 
@@ -91,7 +91,7 @@ def test_convert_map_5():
 1→2<
   2<3→4>7
   2<5→6>7
-  >7→8
+>7→8
 """.strip()]
     assert result == expected
 
@@ -111,7 +111,7 @@ def test_convert_map_6():
   2<3>6
   2<4>6
   2<5>6
-  >6→7
+>6→7
 """.strip()]
     assert result == expected
 
@@ -126,10 +126,27 @@ def test_convert_map_7():
 1<
   1<>3
   1<>4
-  2<
+2<
   2<>3
   2<>4
-  >3
-  >4
+>3
+>4
+""".strip()]
+    assert result == expected
+
+def test_convert_map_8():
+    result = make_flow_map("""
+    1 --> 2
+    2 --> 3
+    2 --> 4
+    3 --> 5
+    3 --> 6
+""")
+    expected = ["""
+1→2<
+  2<3<
+    3<5
+    3<6
+  2<4
 """.strip()]
     assert result == expected

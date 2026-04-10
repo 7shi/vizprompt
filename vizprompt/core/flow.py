@@ -324,10 +324,10 @@ class Flow:
                     return nodes, ("branch", nxt)
                 current = nxt
 
-        def render(head: str, indent: bool, nodes: list[str], end) -> str:
+        def render(head: str, depth: int, nodes: list[str], end) -> str:
             parts = []
-            if indent:
-                parts.append("  ")
+            if depth > 0:
+                parts.append("  " * depth)
             if head:
                 parts.append(head)
             if nodes:
@@ -339,25 +339,38 @@ class Flow:
                 parts.append(f">{idx(target)}")
             return "".join(parts)
 
+        merge_cont_depth: dict[str, int] = {}
+
+        def process_branch(branch: str, depth: int):
+            for target in fwd[branch]:
+                sub_nodes, sub_end = walk(target, skip_if_merge=True)
+                lines.append(render(f"{idx(branch)}<", depth, sub_nodes, sub_end))
+                if sub_end[0] == "branch":
+                    process_branch(sub_end[1], depth + 1)
+                elif sub_end[0] == "merge":
+                    merge_cont_depth[sub_end[1]] = depth - 1
+
         lines = []
 
         # 1. 各 start セグメント + その分岐エッジセグメントを出力
         starts = [n for n in history if not rev[n]]
-        first = True
         for start in starts:
             nodes, end = walk(start)
-            lines.append(render("", not first, nodes, end))
-            first = False
+            lines.append(render("", 0, nodes, end))
             if end[0] == "branch":
-                branch = end[1]
-                for target in fwd[branch]:
-                    sub_nodes, sub_end = walk(target, skip_if_merge=True)
-                    lines.append(render(f"{idx(branch)}<", True, sub_nodes, sub_end))
+                process_branch(end[1], depth=1)
+            elif end[0] == "merge":
+                merge_cont_depth[end[1]] = 0
 
         # 2. マージ継続セグメントを topological 順に出力
         for merge in [n for n in history if is_merge(n)]:
+            depth = merge_cont_depth.get(merge, 0)
             nodes, end = walk(merge)
-            lines.append(render(">", True, nodes, end))
+            lines.append(render(">", depth, nodes, end))
+            if end[0] == "branch":
+                process_branch(end[1], depth + 1)
+            elif end[0] == "merge":
+                merge_cont_depth[end[1]] = depth
 
         return lines
 
